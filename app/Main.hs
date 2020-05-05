@@ -1,18 +1,33 @@
 module Main where
 import UI.NCurses
+import System.Environment
+import System.Directory
+import System.Exit
+
+start :: IO String
+start = do
+   args <- getArgs
+   if length args == 1
+      then let path = head args in do
+         exists <- doesFileExist path
+         if exists
+            then readFile path
+            else return ""
+      else do
+         putStrLn $ "Must enter exactly 1 argument. You entered " ++ (show (length args))
+         exitFailure
 
 main :: IO ()
-main = runCurses $ do
-    setEcho False
-    w <- defaultWindow
-    updateWindow w $ do
-        moveCursor 1 10
-        drawString "Hello world!"
-        moveCursor 3 10
-        drawString "(press q to quit)"
-        moveCursor 0 0
-    render
-    waitFor w (\ev -> ev == EventCharacter 'q' || ev == EventCharacter 'Q')
+main = do
+   s <- start
+   runCurses $ do
+      setEcho True
+      w <- defaultWindow
+      updateWindow w $ do
+         drawString s
+         moveCursor 0 0
+      render
+      waitFor w (\ev -> ev == EventCharacter 'q' || ev == EventCharacter 'Q')
 
 waitFor :: Window -> (Event -> Bool) -> Curses ()
 waitFor w p = loop where
