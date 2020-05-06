@@ -2,5 +2,5 @@
 *~
 *.sw*
 
-# extension for example files that I don't intend to commit
-*.ex
+# extension for files that I don't intend to commit
+*.noncommit

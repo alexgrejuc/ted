@@ -1,5 +1,7 @@
 module Main where
+
 import UI.NCurses
+
 import System.Environment
 import System.Directory
 import System.Exit
@@ -17,17 +19,37 @@ start = do
          putStrLn $ "Must enter exactly 1 argument. You entered " ++ (show (length args))
          exitFailure
 
+handleEvent :: Window -> String -> Event -> Curses String
+handleEvent w s (EventCharacter c) =
+   let s' = s ++ [c] in do
+      updateWindow w (do
+                        drawString s'
+                        moveCursor 0 0)
+      render
+      return s'
+handleEvent _ _ _ = undefined
+
+loop :: Window -> String -> Curses ()
+loop w s = do
+      ev <- getEvent w Nothing
+      case ev of
+         Nothing -> loop w s
+         Just ev' -> do
+                        s' <- handleEvent w s ev'
+                        loop w s'
+
 main :: IO ()
 main = do
    s <- start
    runCurses $ do
-      setEcho True
+      setEcho False
       w <- defaultWindow
       updateWindow w $ do
          drawString s
          moveCursor 0 0
       render
-      waitFor w (\ev -> ev == EventCharacter 'q' || ev == EventCharacter 'Q')
+      loop w s
+      --waitFor w (\ev -> ev == EventCharacter 'q' || ev == EventCharacter 'Q')
 
 waitFor :: Window -> (Event -> Bool) -> Curses ()
 waitFor w p = loop where
