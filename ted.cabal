@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 32a745cab5ceb87828c508ea158a93e54b3b76b81bdd732e0c0292768f510265
+-- hash: 3f948cc8c91614d92ec2e3085dfa69958a3fb6c770c0eda5a9a48f3642a35959
 
 name:           ted
 version:        0.1.0.0
@@ -61,7 +61,7 @@ executable ted-exe
 
 test-suite ted-test
   type: exitcode-stdio-1.0
-  main-is: Spec.hs
+  main-is: Tests.hs
   other-modules:
       Paths_ted
   hs-source-dirs:
@@ -71,6 +71,7 @@ test-suite ted-test
       base >=4.7 && <5
     , containers
     , directory
+    , doctest
     , filepath
     , ncurses
     , ted

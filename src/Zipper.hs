@@ -41,7 +41,9 @@ makeLine l s r = makeZipper [] l s r []
 -- | Makes the (left, selection, right) portion of a Zipper at the specified column from a line of
 --   text. Should only be used by fromText, assumes no newline character at the end of the input.
 --
---   >>> fromLine "123456789" 1 == makeLine "" "1" "23456789"
+--   >>> fromLine 1 "123456789" == makeLine "" "1" "23456789"
+--   True
+--
 fromLine :: Int -> Text -> Zipper
 fromLine _ "" = emptyZipper
 fromLine x t  = makeLine "" s r
@@ -58,7 +60,9 @@ splitThree n l     = case S.splitAt n l of
 
 -- | Makes a Zipper from Text by splitting on newlines.
 --
--- >>> fromText (1,1) "1\n2\n3\n" == makeZipper [] "" "1" "" ["2","3"]
+--   >>> fromText (1,1) "1\n2\n3\n" == makeZipper [] "" "1" "" ["2","3"]
+--   True
+--
 fromText :: (Int, Int) -> Text -> Zipper
 fromText _ ""    = emptyZipper
 fromText (c,r) t = (fromLine c s) { above = a, below = b }
@@ -86,8 +90,9 @@ toText z = concatSeq (lines |> (T.pack "\n"))
 --   >>> goLeft numbers == makeLine "123" "4" "56789"
 --   True
 --
---   >>> appN goLeft 20 test == makeLine "" "1" "23456789"
+--   >>> appN goLeft 20 numbers == makeLine "" "1" "23456789"
 --   True
+--
 goLeft :: Zipper -> Zipper
 goLeft z@(Zipper a l s r b) = case unsnoc l of
                                  Nothing      -> z
@@ -99,8 +104,9 @@ goLeft z@(Zipper a l s r b) = case unsnoc l of
 --   >>> goRight numbers == makeLine "12345" "6" "789"
 --   True
 --
---   >>> appN goRight 20 test == makeLine "12345678" "9" ""
+--   >>> appN goRight 20 numbers == makeLine "12345678" "9" ""
 --   True
+--
 goRight :: Zipper -> Zipper
 goRight z@(Zipper a l s r b) = case uncons r of
                                  Nothing       -> z
