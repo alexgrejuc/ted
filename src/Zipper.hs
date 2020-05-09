@@ -2,17 +2,11 @@
 
 module Zipper where
 
-import Data.Sequence (Seq, (<|), (|>), (><))
+import Data.Sequence (Seq, (<|), (|>), (><), pattern Empty, pattern (:<|), pattern (:|>))
 import qualified Data.Sequence as S
 
 import Data.Text (Text, uncons, unsnoc, cons, append)
 import qualified Data.Text as T
-
--- | For cleaner pattern matching on Data.Sequence
---   thanks to https://stackoverflow.com/a/31106916/13225914
-pattern Empty   <- (S.viewl -> S.EmptyL)  where Empty = S.empty
-pattern x :< xs <- (S.viewl -> x S.:< xs) where (:<)  = (S.<|)
-pattern xs :> x <- (S.viewr -> xs S.:> x) where (:>)  = (S.|>)
 
 -- | A 2-d zipper representing the contents of a text file with newlines stripped.
 --   A line is represented by the Text to the left of the currently-selected contents, and the Text
@@ -54,7 +48,7 @@ fromLine x t  = makeLine "" s r
 splitThree :: Int -> Seq Text -> (Seq Text, Text, Seq Text)
 splitThree _ Empty = ([], "", [])
 splitThree n l     = case S.splitAt n l of
-                        (xs:>x, r)  -> (xs, x, r)
+                        (xs:|>x, r)  -> (xs, x, r)
                         ([x], r)    -> ([], x, r)
                         (Empty, r)  -> ([], "", r) -- n == 0, not an actual use case
 
