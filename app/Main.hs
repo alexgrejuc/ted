@@ -1,3 +1,8 @@
+{-|
+Module      : Main 
+Description : The high level file IO component of the text editor.
+-}
+
 module Main where
 
 import UI.NCurses
@@ -5,6 +10,8 @@ import UI.NCurses
 import System.Environment
 import System.Directory
 import System.Exit
+
+import Zipper
 
 start :: IO String
 start = do
@@ -58,8 +65,3 @@ waitFor w p = loop where
         case ev of
             Nothing -> loop
             Just ev' -> if p ev' then return () else loop
-
---import Lib
---
---main :: IO ()
---main = someFunc
