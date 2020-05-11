@@ -1,11 +1,12 @@
 {-|
-Module      : Zipper 
-Description : The functions and data types for the creating and manipulating the core data structure
-              of the editor.
+Module      : Zipper
+Description : Creation and manipulation of a Text Zipper.
+
+The functions and data types for the creating and manipulating the core data structure
+of the editor.
 -}
 
 {-# LANGUAGE ViewPatterns, PatternSynonyms, OverloadedLists, OverloadedStrings #-}
-
 module Zipper where
 
 import Lib
@@ -13,8 +14,10 @@ import Lib
 import Data.Sequence (Seq, (<|), (|>), (><), pattern Empty, pattern (:<|), pattern (:|>))
 import qualified Data.Sequence as S
 
-import Data.Text (Text, uncons, unsnoc, cons, append)
+import Data.Text (Text, snoc, uncons, unsnoc, cons, append)
 import qualified Data.Text as T
+
+--import Data.Tuple.Extra
 
 -- | A 2-d zipper representing the contents of a text file with newlines stripped.
 --   A line is represented by the Text to the left of the currently-selected contents, and the Text
@@ -44,26 +47,26 @@ lineZipper l s r = makeZipper [] l s r []
 -- | Makes the (left, selection, right) portion of a Zipper at the specified column from a line of
 --   text. Should only be used by fromText, assumes no newline character at the end of the input.
 --
---   >>> fromLine 1 "123456789" == lineZipper "" "1" "23456789"
+--   >>> fromLine 0 "123456789" == lineZipper "" "1" "23456789"
 --   True
 --
 fromLine :: Int -> Text -> Zipper
 fromLine _ "" = emptyZipper
 fromLine x t  = lineZipper "" s r
    where
-      (s,r) = T.splitAt x t
+      (s,r) = T.splitAt (x + 1) t
 
--- | Split a Seq Text into (above, selection, below) at the specified row (1-indexed).
+-- | Split a Seq Text into (above, selection, below) at the specified row (0-indexed).
 splitThree :: Int -> Seq Text -> (Seq Text, Text, Seq Text)
 splitThree _ Empty = ([], "", [])
-splitThree n l     = case S.splitAt n l of
+splitThree n l     = case S.splitAt (n + 1) l of
                         (xs:|>x, r)  -> (xs, x, r)
                         ([x], r)    -> ([], x, r)
                         (Empty, r)  -> ([], "", r) -- n == 0, not an actual use case
 
 -- | Makes a Zipper from Text by splitting on newlines.
 --
---   >>> fromText (1,1) "1\n2\n3\n" == makeZipper [] "" "1" "" ["2","3"]
+--   >>> fromText (0,0) "1\n2\n3\n" == makeZipper [] "" "1" "" ["2","3"]
 --   True
 --
 fromText :: (Int, Int) -> Text -> Zipper
@@ -78,6 +81,12 @@ concatSeq :: Monoid a => Seq a -> a
 concatSeq Empty = mempty
 concatSeq xs = foldr mappend mempty xs
 
+seqUnsnoc :: Seq a -> (Seq a, a)
+seqUnsnoc (xs:|>x) = (xs, x)
+
+seqUncons :: Seq a -> (a, Seq a)
+seqUncons (x:<|xs) = (x, xs)
+
 -- | Converts a Zipper into Text by interspersing newlines between all lines.
 --   This implementation could use an efficiency tune-up, but that can be done later.
 --
@@ -90,37 +99,136 @@ toText z = concatSeq (lines |> (T.pack "\n"))
       between = T.append (left z) (T.append (selection z) (right z))
       lines = S.intersperse (T.pack "\n") (above z >< between <| below z)
 
+-- | Moves the cursor up one row.
+--   Does nothing if the cursor is already at the topmost position.
+--
+--   >>> stepUp (makeZipper ["0", "1"] "1" "2" "3" ["b"]) == makeZipper ["0"] "" "1" "" ["123", "b"]
+--   True
+--
+--   >>> stepUp (makeZipper ["hi"] "1" "2" "3" ["b"]) == makeZipper [] "" "h" "i" ["123", "b"]
+--   True
+--
+--   >>> stepUp (makeZipper ["hello"] "1" "2" "3" []) == makeZipper [] "" "h" "ello" ["123"]
+--   True
+stepUp :: Zipper -> Zipper
+stepUp z@(Zipper a l s r b) = case a of
+                                 Empty -> z
+                                 _     -> Zipper a' "" s' r' b'
+   where
+      (a', newLine) = seqUnsnoc a
+      (s', r')      = T.splitAt 1 newLine
+      oldLine       = T.append l (T.append s r)
+      b'            = oldLine <| b
+
+-- | Moves up n rows
+goUp :: Integer -> Zipper -> Zipper
+goUp = appN stepUp
+
+-- | Moves the cursor down one row.
+--   Does nothing if the cursor is already at the bottommost position.
+--
+--   >>> stepDown (makeZipper ["0"] "" "1" "2" ["b", "c"]) == makeZipper ["0", "12"] "" "b" "" ["c"]
+--   True
+--
+--   >>> stepDown (makeZipper [] "" "!" "" ["single"]) == makeZipper ["!"] "" "s" "ingle" []
+--   True
+stepDown :: Zipper -> Zipper
+stepDown z@(Zipper a l s r b) = case b of
+                                 Empty -> z
+                                 _     -> Zipper a' "" s' r' b'
+   where
+      (newLine, b') = seqUncons b
+      (s', r')      = T.splitAt 1 newLine
+      oldLine       = T.append l (T.append s r)
+      a'            = a |> oldLine
+
+-- | Moves down n rows
+goDown :: Integer -> Zipper -> Zipper
+goDown = appN stepDown
+
 -- | Moves the cursor left one column.
 --   Does nothing if the cursor is already at the leftmost position.
 --
---   >>> goLeft numbers == lineZipper "123" "4" "56789"
+--   >>> stepLeft numbers == lineZipper "123" "4" "56789"
 --   True
 --
---   >>> appN goLeft 20 numbers == lineZipper "" "1" "23456789"
+--   >>> goLeft 20 numbers == lineZipper "" "1" "23456789"
 --   True
 --
---   >>> toText (goLeft numbers) == toText numbers
+--   >>> toText (stepLeft numbers) == toText numbers
 --   True
-goLeft :: Zipper -> Zipper
-goLeft z@(Zipper a l s r b) = case unsnoc l of
+stepLeft :: Zipper -> Zipper
+stepLeft z@(Zipper a l s r b) = case unsnoc l of
                                  Nothing      -> z
                                  Just (l',s') -> Zipper a l' [s'] (append s r) b
+
+-- | Performs a relative move on a zipper (row, column).
+go :: (Integer, Integer) -> Zipper -> Zipper
+go (y, x) z
+   | y > 0     = go (0, x) $ goDown y z
+   | y < 0     = go (0, x) $ goUp (abs y) z
+   | x > 0     = goRight x z
+   | x < 0     = goLeft (abs x) z
+   | otherwise = z
+
+-- | Moves left n columns
+goLeft :: Integer -> Zipper -> Zipper
+goLeft = appN stepLeft
 
 -- | Moves the cursor right one column.
 --   Does nothing if the cursor is already at the rightmost position.
 --
---   >>> goRight numbers == lineZipper "12345" "6" "789"
+--   >>> stepRight numbers == lineZipper "12345" "6" "789"
 --   True
 --
---   >>> appN goRight 20 numbers == lineZipper "12345678" "9" ""
+--   >>> goRight 20 numbers == lineZipper "12345678" "9" ""
 --   True
 --
---   >>> toText (goRight numbers) == toText numbers
+--   >>> toText (stepRight numbers) == toText numbers
 --   True
-goRight :: Zipper -> Zipper
-goRight z@(Zipper a l s r b) = case uncons r of
+stepRight :: Zipper -> Zipper
+stepRight z@(Zipper a l s r b) = case uncons r of
                                  Nothing       -> z
                                  Just (s', r') -> Zipper a (append l s) [s'] r' b
+
+-- | Moves right n columns
+goRight :: Integer -> Zipper -> Zipper
+goRight = appN stepRight
+
+-- | Returns a 0-indexed (row, column) cursor position.
+--
+--   >>> cursorPos emptyZipper == (0,0)
+--   True
+--
+--   >>> cursorPos $ makeZipper ["0", "1", "2", "3"] "01234" "5" "6789" ["below"]
+--   (4,5)
+--
+cursorPos :: Zipper -> (Integer, Integer)
+cursorPos (Zipper a l _ _ _) = both fromIntegral (S.length a, T.length l)
+
+-- | Creates a new line from the current selection
+--
+--   >>> split (lineZipper "moves up" "d" "oesn't") == makeZipper ["moves up"] "" "d" "oesn't" []
+--   True
+--
+--   >>> split (lineZipper "" "stays" "put") == makeZipper [""] "" "stays" "put" []
+--   True
+split :: Zipper -> Zipper
+split (Zipper a l s r b) = Zipper (a |> l) "" s r b
+
+-- | Removes a character from `left`
+--
+--   >>> backspace (lineZipper "abc" "def" "ghi") == lineZipper "ab" "def" "ghi"
+--   True
+--
+backspace :: Zipper -> Zipper
+backspace z = z { left = T.dropEnd 1 (left z) }
+
+appendChar :: Char -> Zipper -> Zipper
+appendChar c z = z { left = snoc (left z) c }
+
+appendText :: Text -> Zipper -> Zipper
+appendText t z = z { left = T.append (left z) t }
 
 numbers :: Zipper
 numbers = lineZipper "1234" "5" "6789"

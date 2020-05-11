@@ -1,6 +1,14 @@
 .stack-work/
 *~
+
+# swap files
 *.sw*
 
 # extension for files that I don't intend to commit
 *.noncommit
+
+# extension for files saved by ted
+*.ted
+
+# output files
+*.out

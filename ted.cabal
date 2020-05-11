@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3f948cc8c91614d92ec2e3085dfa69958a3fb6c770c0eda5a9a48f3642a35959
+-- hash: ef2c18e9053abacef8bf232e0ecc616fd88de3c718c69376ca3c28f697faaf44
 
 name:           ted
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      Editor
       Lib
       Zipper
   other-modules:
