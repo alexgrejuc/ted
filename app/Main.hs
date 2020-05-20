@@ -31,7 +31,7 @@ main = do
               drawText text
               moveCursor 0 0
            render
-           let zipper = fromText (1, 1) text
+           let zipper = fromText (0, 0) text
            run w Insert zipper
    let output = T.append (toText z) (T.pack ("\n\n" ++ show z))
    I.writeFile (path ++ ".ted") output -- temporary, to prevent overwriting files

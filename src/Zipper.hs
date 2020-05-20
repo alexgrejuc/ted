@@ -146,6 +146,14 @@ stepDown z@(Zipper a l s r b) = case b of
 goDown :: Integer -> Zipper -> Zipper
 goDown = appN stepDown
 
+atBottom :: Zipper -> Bool
+atBottom (Zipper _ _ _ _ []) = True
+atBottom _                   = False
+
+atTop :: Zipper -> Bool
+atTop (Zipper [] _ _ _ _) = True
+atTop _                   = False
+
 -- | Moves the cursor left one column.
 --   Does nothing if the cursor is already at the leftmost position.
 --
@@ -162,11 +170,16 @@ stepLeft z@(Zipper a l s r b) = case unsnoc l of
                                  Nothing      -> z
                                  Just (l',s') -> Zipper a l' [s'] (append s r) b
 
--- | Performs a relative move on a zipper (row, column).
+-- | Performs a move on a zipper (row, column).
+--   Vertically relative, horizontally relative to the x position after the vertical move.
+--
+--   >>> let z = lineZipper "" "1" "234" in go (1,3) z == z && go (-1,3) z == z
+--   True
+--
 go :: (Integer, Integer) -> Zipper -> Zipper
 go (y, x) z
-   | y > 0     = go (0, x) $ goDown y z
-   | y < 0     = go (0, x) $ goUp (abs y) z
+   | y > 0     = if atBottom z then z else go (0, x) $ goDown y z
+   | y < 0     = if atTop z then z else go (0, x) $ goUp (abs y) z
    | x > 0     = goRight x z
    | x < 0     = goLeft (abs x) z
    | otherwise = z

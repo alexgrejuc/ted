@@ -59,7 +59,7 @@ tedRender w z = do
       render
       return z
 
--- | Converts an arrow key press to the (row, column) of the corresponding cursor position
+-- | Converts an arrow key press to the (y,x) go-relative coordinates.
 arrowToMove :: Zipper -> Key -> (Integer, Integer)
 arrowToMove z k = let (_, c) = cursorPos z in convert c k
    where
