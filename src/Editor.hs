@@ -41,10 +41,11 @@ handleEvent w z e                      = return z -- ignore everything else (e.g
 -- | Maps a key press to the corresponding operation on the zipper
 act :: Key -> Zipper -> Zipper
 act k z
-   | isArrowKey      k = go (arrowToMove z k) z
-   | KeyBackspace == k = backspace z
-   | KeyEnter     == k = split z -- TODO: why does Enter get interpreted as '\n'?
-   | otherwise         = z
+   | isArrowKey            k = go (arrowToMove z k) z
+   | KeyBackspace       == k = backspace z
+   | KeyDeleteCharacter == k = delete z
+   | KeyEnter           == k = split z -- TODO: why does Enter get interpreted as '\n'?
+   | otherwise               = z
 
 -- | Updates the display based on the state of the zipper.
 tedRender :: Window -> Zipper -> Curses Zipper

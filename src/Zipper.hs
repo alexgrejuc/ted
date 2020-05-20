@@ -234,8 +234,44 @@ split (Zipper a l s r b) = Zipper (a |> l) "" s r b
 --   >>> backspace (lineZipper "abc" "def" "ghi") == lineZipper "ab" "def" "ghi"
 --   True
 --
+--   >>> backspace (Zipper ["moves"] "" "u" "p" []) == Zipper [] "moves" "u" "p" []
+--   True
 backspace :: Zipper -> Zipper
+backspace z@(Zipper a "" s r b) = case a of
+                                    xs:|>x -> z { above = xs, left = x }
+                                    _      -> z
 backspace z = z { left = T.dropEnd 1 (left z) }
+
+-- | Deletes the current selection
+--
+--   >>> delete emptyZipper == emptyZipper
+--   True
+--
+--   delete (lineZipper "" "A" "") == emptyZipper
+--   True
+--
+--   >>> delete (lineZipper "abc" "d" "efg") == lineZipper "abc" "e" "fg"
+--   True
+--
+--   >>> delete (lineZipper "abc" "de" "fg") == lineZipper "abc" "f" "g"
+--   True
+--
+--   >>> delete (lineZipper "abc" "d" "") == lineZipper "abc" "" ""
+--   True
+--
+--   >>> delete (Zipper [] "text" "" "" ["moves up"]) == Zipper [] "text" "m" "oves up" []
+--   True
+--
+delete :: Zipper -> Zipper
+delete z@(Zipper _ _ _ r b) = case uncons r of
+                                Just (c, r') -> z { selection = T.singleton c, right = r' }
+                                Nothing -> case b of
+                                            []   -> z { selection = "" }
+                                            x:<|xs -> z'
+                                               where
+                                                  (s, r') = T.splitAt 1 x
+                                                  z' = z { selection = s, right = r', below = xs }
+z = Zipper [] "text" "" "" ["moves up"]
 
 appendChar :: Char -> Zipper -> Zipper
 appendChar c z = z { left = snoc (left z) c }
