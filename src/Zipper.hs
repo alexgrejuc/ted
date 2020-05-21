@@ -194,14 +194,14 @@ goLeft = appN stepLeft
 --   >>> stepRight numbers == lineZipper "12345" "6" "789"
 --   True
 --
---   >>> goRight 20 numbers == lineZipper "12345678" "9" ""
+--   >>> goRight 20 numbers == lineZipper "123456789" "" ""
 --   True
 --
 --   >>> toText (stepRight numbers) == toText numbers
 --   True
 stepRight :: Zipper -> Zipper
 stepRight z@(Zipper a l s r b) = case uncons r of
-                                 Nothing       -> z
+                                 Nothing       -> z { left = append l s, selection = "" }
                                  Just (s', r') -> Zipper a (append l s) [s'] r' b
 
 -- | Moves right n columns
@@ -256,22 +256,21 @@ backspace z = z { left = T.dropEnd 1 (left z) }
 --   >>> delete (lineZipper "abc" "de" "fg") == lineZipper "abc" "f" "g"
 --   True
 --
---   >>> delete (lineZipper "abc" "d" "") == lineZipper "abc" "" ""
+--   >>> delete (Zipper [] "abc" "d" "" ["e"]) == Zipper [] "abc" "" "" ["e"]
 --   True
 --
 --   >>> delete (Zipper [] "text" "" "" ["moves up"]) == Zipper [] "text" "m" "oves up" []
 --   True
 --
 delete :: Zipper -> Zipper
-delete z@(Zipper _ _ _ r b) = case uncons r of
-                                Just (c, r') -> z { selection = T.singleton c, right = r' }
-                                Nothing -> case b of
-                                            []   -> z { selection = "" }
-                                            x:<|xs -> z'
-                                               where
-                                                  (s, r') = T.splitAt 1 x
-                                                  z' = z { selection = s, right = r', below = xs }
-z = Zipper [] "text" "" "" ["moves up"]
+delete z@(Zipper _ _ s r b)
+   | not (T.null s)  = let (s', r') = T.splitAt 1 r in z { selection = s', right = r' }
+   | otherwise       = case b of
+                          []     -> z
+                          x:<|xs -> z'
+                             where
+                                (s', r') = T.splitAt 1 x
+                                z' = z { selection = s', right = r', below = xs }
 
 appendChar :: Char -> Zipper -> Zipper
 appendChar c z = z { left = snoc (left z) c }
