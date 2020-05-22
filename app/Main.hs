@@ -24,32 +24,25 @@ import Editor
 main :: IO ()
 main = do
    (path, text) <- start
-   z <- runCurses $ do
+   runCurses $ do
            setEcho False                    -- displaying to terminal handled manually
-           w <- defaultWindow
-           updateWindow w $ do
-              drawText text
-              moveCursor 0 0
-           render
            let zipper = fromText (0, 0) text
-           run w Insert zipper
-   let output = T.append (toText z) (T.pack ("\n\n" ++ show z))
-   I.writeFile (path ++ ".ted") output -- temporary, to prevent overwriting files
-   putStrLn $ "saved copy of file to " ++ path ++ ".ted"
+           startEditor $ TedState { mode = Insert, offset = 0, text = zipper, path = path }
+   return ()
 
 -- | Returns a file path based on the command line argument and returns that path along with empty
 --   Text or the contents of the file, if it exists.
 start :: IO (String, Text)
 start = do
    args <- getArgs
-   if length args == 1
-      then let path = head args in do
+   case args of
+      [path] -> do
          exists <- doesFileExist path
          if exists
             then do
                text <- I.readFile path
                return (path, text)
             else return (path, "")
-      else do
+      _ -> do
          putStrLn $ "Must enter exactly 1 argument. You entered " ++ (show (length args))
          exitFailure

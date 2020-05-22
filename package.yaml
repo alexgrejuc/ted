@@ -26,6 +26,7 @@ dependencies:
 - filepath
 - containers
 - text
+- mtl
 
 library:
   source-dirs: src

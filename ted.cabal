@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ef2c18e9053abacef8bf232e0ecc616fd88de3c718c69376ca3c28f697faaf44
+-- hash: 5bc1bbc3e5abfec865524badeab2e88b5dfadea9d5e7719409b1fc322b654409
 
 name:           ted
 version:        0.1.0.0
@@ -39,6 +39,7 @@ library
     , containers
     , directory
     , filepath
+    , mtl
     , ncurses
     , text
   default-language: Haskell2010
@@ -55,6 +56,7 @@ executable ted-exe
     , containers
     , directory
     , filepath
+    , mtl
     , ncurses
     , ted
     , text
@@ -74,6 +76,7 @@ test-suite ted-test
     , directory
     , doctest
     , filepath
+    , mtl
     , ncurses
     , ted
     , text
