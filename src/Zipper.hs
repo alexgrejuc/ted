@@ -364,3 +364,19 @@ appendText t z = z { left = T.append (left z) t }
 
 numbers :: Zipper
 numbers = paragraph "1234" "5" "6789"
+
+sentences = paragraph "A sentence. An" "o" "ther. Final."
+sentences' = paragraph "A sentence." " Another." " Final."
+
+a +++ b = T.append a b
+
+-- |
+--
+-- >>> selectSentence sentences == sentences' 
+selectSentence :: Zipper -> Zipper
+selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ sr +++ ".") (T.drop 1 r') b
+   where
+      (l', onLeft) = case T.splitOn "." l of
+                        [] -> (l, "")
+                        xs -> (T.dropEnd (T.length onLeft) l, last xs)
+      (sr, r') = T.breakOn "." r

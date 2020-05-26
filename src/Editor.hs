@@ -23,6 +23,9 @@ import Data.Sequence as S
 import Control.Monad.State
 
 import Debug.Trace
+
+import System.Exit
+
 data Mode = Insert | Edit
    deriving (Show, Eq)
 
@@ -43,19 +46,10 @@ startEditor = runStateT $ do
 -- | Runs the editor
 eventLoop :: MonadEditor ()
 eventLoop = do
-      s <- get
-      let m = mode s
-          z = text s
       w <- lift defaultWindow
       ev <- lift (getEvent w Nothing)
-      (_, l) <- lift screenSize
       case ev of
          Nothing -> eventLoop
-         Just (EventCharacter '\ESC') ->
-            do
-               let output = T.append (toText z) (T.pack ("\n\n" ++ show z ++ show (cursorPos l z)))
-               liftIO $ I.writeFile (path s ++ ".ted") output -- temp, to prevent overwriting files
-               liftIO $ putStrLn ("saved copy of file to " ++ path s ++ ".ted")
          Just ev' -> do
                         handleEvent w ev'
                         eventLoop
@@ -66,12 +60,30 @@ pairDiff l r = (fst r - fst l, snd r - snd l)
 posDiff :: Integer -> Zipper -> Zipper -> (Integer, Integer)
 posDiff l a b = pairDiff (cursorPos l a) (cursorPos l b)
 
--- | Handles an event by making the corresponding zipper update and displaying it
 handleEvent :: Window -> Event -> MonadEditor ()
-handleEvent w (EventSpecialKey k)    = do { (_, l) <- lift screenSize; tedRender w (act (l - 1) k) }
-handleEvent w (EventCharacter '\n')  = tedRender w split
-handleEvent w (EventCharacter c)     = tedRender w (appendChar c)
-handleEvent w e                      = return () -- ignore everything else (e.g. mouse clicks)
+handleEvent w (EventCharacter '\ESC') = modify (\s -> s { mode = toggleMode (mode s) })
+handleEvent w e = do
+                     s <- get
+                     if mode s == Insert then insertEvent w e else editEvent w e
+
+editEvent :: Window -> Event -> MonadEditor ()
+editEvent w (EventCharacter 'q') = (do
+ (_, l) <- lift screenSize
+ s <- get
+ let z = text s
+ let output = T.append (toText z) (T.pack ("\n\n" ++ show z ++ show (cursorPos l z)))
+ liftIO $ I.writeFile (path s ++ ".ted") output -- temp, to prevent overwriting files
+ --liftIO $ putStrLn ("saved copy of file to " ++ path s ++ ".ted")
+ liftIO $ exitSuccess)
+editEvent w (EventCharacter 's') = tedRender w (delete . selectSentence)
+editEvent w e                    = return () -- ignore everything else (e.g. mouse clicks)
+
+-- | Handles an event by making the corresponding zipper update and displaying it
+insertEvent :: Window -> Event -> MonadEditor ()
+insertEvent w (EventSpecialKey k)    = do { (_, l) <- lift screenSize; tedRender w (act (l - 1) k) }
+insertEvent w (EventCharacter '\n')  = tedRender w split
+insertEvent w (EventCharacter c)     = tedRender w (appendChar c)
+insertEvent w e                      = return () -- ignore everything else (e.g. mouse clicks)
 
 -- | Maps a key press to the corresponding operation on the zipper
 act :: Integer -> Key -> Zipper -> Zipper
@@ -134,6 +146,3 @@ isArrowKey k = elem k arrowKeys
 toggleMode :: Mode -> Mode
 toggleMode Insert = Edit
 toggleMode Edit   = Insert
-
-toggleModeKey :: Event
-toggleModeKey = EventCharacter '\ESC'
