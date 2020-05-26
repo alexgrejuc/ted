@@ -202,7 +202,7 @@ goRight = appFix stepRight
 go :: Integer -> (Integer, Integer) -> Zipper -> Zipper
 go l (y, x) z
    | y > 0     = go l (0, x) $ goDown y l z
-   | y < 0     = go l (0, x) $ goUp (abs y) l z 
+   | y < 0     = go l (0, x) $ goUp (abs y) l z
    | x > 0     = goRight x z
    | x < 0     = goLeft (abs x) z
    | otherwise = z
@@ -231,7 +231,7 @@ stepDown len z@(Zipper a l s r b) = if atBottom then drop else wrap
       col        = leftChars `mod` llen
       atBottom   = col + 1 + (T.length s) + (T.length r) < llen
       (l', r')   = T.splitAt (leftChars + llen) (combineLine z)
-      wrap       = z { left = l', selection = T.take 1 r', right = T.drop 1 r' } 
+      wrap       = z { left = l', selection = T.take 1 r', right = T.drop 1 r' }
       drop       = case b of
                      []       -> z
                      "":<|xs  -> downPar z
@@ -239,10 +239,10 @@ stepDown len z@(Zipper a l s r b) = if atBottom then drop else wrap
                         where
                            (top, rest)  = T.splitAt llen x
                            (l', r')     = T.splitAt col top
-                           (s', r'')    = T.splitAt 1 r' 
+                           (s', r'')    = T.splitAt 1 r'
 
-goDown :: Integer -> Integer -> Zipper -> Zipper 
-goDown n len z = appFix (stepDown len) n z 
+goDown :: Integer -> Integer -> Zipper -> Zipper
+goDown n len z = appFix (stepDown len) n z
 
 -- | Moves up one visual line (e.g. n characters, the length of a line on the screen)
 --
@@ -372,7 +372,8 @@ a +++ b = T.append a b
 
 -- |
 --
--- >>> selectSentence sentences == sentences' 
+-- >>> selectSentence sentences == sentences'
+-- True
 selectSentence :: Zipper -> Zipper
 selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ sr +++ ".") (T.drop 1 r') b
    where
@@ -380,3 +381,11 @@ selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ sr +++ ".") (T
                         [] -> (l, "")
                         xs -> (T.dropEnd (T.length onLeft) l, last xs)
       (sr, r') = T.breakOn "." r
+
+-- | A zipper which can be manipulated in ghci in case a reviewer has trouble building the project.
+exampleZipper :: Zipper
+exampleZipper = Zipper ["This is a paragraph above.", "This is another one."]
+                       "This is text on the left." " " "This is text on the right."
+                       ["This is a paragraph below."]
+
+
