@@ -48,8 +48,11 @@ I intend to make a text editor with an insert and edit mode for the purpose of e
   * Started edit mode
   
 ## Design Questions
-1. What are your ideas for an edit mode? How might you structure a text editing language (for editing prose text rather than code)? Do you have suggestions for core objects (e.g. words, sentences, paragraphs), operations (e.g. copying, pasting, cutting, shifting case), or modifiers (e.g. repeat n times, do to every nth sub-object). 
-2. How can I visually indicate edit mode selections? I don't think anyone else has experience with the [ncurses](https://hackage.haskell.org/package/ncurses-0.2.16/docs/UI-NCurses.html) library, but it's worth asking. I thought it would be trivial to highlight or underline text with a library function, but alas, it doesn't exist! One approach is to overlay a window on top of the current window with modified text. 
+1. What are your ideas for an edit mode? How might you structure a text editing language (for editing prose text rather than code)? Do you have suggestions for core objects (e.g. words, sentences, paragraphs), operations (e.g. copying, pasting, cutting, shifting case), or modifiers (e.g. repeat n times, do to every nth sub-object).
+2. What is a good way to to display a screen's worth of text at the proper line offset? It is currently handled in three lines of just-get-it-to-work code (`displayLines` and `toRows` of Zipper.hs and `let rows = ...` in `draw` of Editor.hs) which splits the entire zipper into line-length rows and is _very_ inefficient. A better way to do it is to count up/down the remaining lines of text from the current line, possibly across paragraph boundaries. Is there a better way to do it?
+3. How can I reduce ncurses flickering? One idea is add an intermediary function which determines how much needs to be redrawn (the entire screen, only cursor moves, a few lines, etc) based on zipper actions and then pass that information to `tedRender` rather than simply clearing and redrawing the screen with every action. Does anyone have suggestions about this? Possibly a system of data types which determine what to redraw? 
+4. How can I visually indicate edit mode selections? I don't think anyone else has experience with the [ncurses](https://hackage.haskell.org/package/ncurses-0.2.16/docs/UI-NCurses.html) library, but it's worth asking. I thought it would be trivial to highlight or underline text with a library function, but alas, it doesn't exist! One approach is to overlay a window on top of the current window with modified text.
+
 
 --- 
 
