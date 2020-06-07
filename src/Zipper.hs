@@ -17,6 +17,8 @@ import qualified Data.Sequence as S
 import Data.Text (Text, snoc, uncons, unsnoc, cons, append)
 import qualified Data.Text as T
 
+type Position = (Integer, Integer)
+
 -- | A 2-d zipper representing the contents of a text file with newlines stripped.
 --   A paragraph is represented by the Text to the left of the currently-selected contents, and the
 --   Text to its right.
@@ -67,7 +69,7 @@ splitThree n l     = case S.splitAt (fromIntegral n + 1) l of
 --   >>> fromText (0,0) "1\n2\n3\n" == makeZipper [] "" "1" "" ["2","3"]
 --   True
 --
-fromText :: (Integer, Integer) -> Text -> Zipper
+fromText :: Position -> Text -> Zipper
 fromText _ ""    = emptyZipper
 fromText (c,r) t = (fromLine c s) { above = a, below = b }
    where
@@ -284,24 +286,58 @@ goUp n len z = appFix (stepUp len) n z
 roundUp 0 b = b
 roundUp a b = let remainder = a `mod` b in if remainder == 0 then a else a + b - remainder
 
+selectionPos :: Integer -> Zipper -> (Position, Position)
+selectionPos len z = ((fst row, fst col), (snd row, snd col))
+   where
+      row = cursorRow len z
+      col = cursorCol len z
+
 -- | Returns a 0-indexed (row, column) cursor position based on lines of length n
 --
---   >>> cursorPos 10 emptyZipper == (0,0)
+--   >>> cursorStart 10 emptyZipper == (0,0)
 --   True
 --
---   >>> cursorPos 10 $ makeZipper ["0", "1", "2", "3"] "01234" "5" "6789" ["below"]
+--   >>> cursorStart 10 $ makeZipper ["0", "1", "2", "3"] "01234" "5" "6789" ["below"]
 --   (4,5)
 --
---   >>> cursorPos 2 $ makeZipper ["0", "1", "2", "3"] "01234" "5" "6789" ["below"]
+--   >>> cursorStart 2 $ makeZipper ["0", "1", "2", "3"] "01234" "56" "6789" ["below"]
 --   (6,1)
 --
-cursorPos :: Integer -> Zipper -> (Integer, Integer)
-cursorPos len (Zipper a l _ _ _) = both fromIntegral (row, col)
+cursorStart :: Integer -> Zipper -> Position
+cursorStart len z = both fst (cursorRow len z, cursorCol len z)
+
+-- | Returns a 0-indexed (row, column) cursor position based on lines of length n
+--
+--   >>> cursorEnd 10 emptyZipper == (0,0)
+--   True
+--
+--   >>> cursorEnd 10 $ makeZipper ["0", "1", "2", "3"] "01234" "5" "6789" ["below"]
+--   (4,5)
+--
+--   >>> cursorEnd 2 $ makeZipper ["0", "1", "2", "3"] "01234" "56" "789" ["below"]
+--   (7,0)
+--
+cursorEnd :: Integer -> Zipper -> Position
+cursorEnd len z = both snd (cursorRow len z, cursorCol len z)
+
+
+-- | Returns a 0-indexed (colStart, colEnd) cursor position based on lines of length n
+cursorCol :: Integer -> Zipper -> Position
+cursorCol len (Zipper a l s _ _) = (start, end)
+   where
+      onLeft = fromIntegral $ T.length l
+      start  = onLeft `mod` len
+      end    = (onLeft + (fromIntegral (T.length (T.drop 1 s)))) `mod` len
+
+-- | Returns a 0-indexed (rowStart, rowEnd) cursor position based on lines of length n
+cursorRow :: Integer -> Zipper -> Position
+cursorRow len (Zipper a l s _ _) = both fromIntegral (start, end)
    where
       len' = fromIntegral len
       prevChars = foldr (\p sum -> (roundUp (T.length p) len' + sum)) 0 a
-      row = prevChars `div` len' + (T.length l `div` len')
-      col = T.length l `mod` len'
+      linesAbove = prevChars `div` len'
+      start = linesAbove + (T.length l `div` len')
+      end = linesAbove + ((T.length l + T.length (T.drop 1 s)) `div` len')
 
 -- | Creates a new line from the current selection
 --
@@ -356,11 +392,31 @@ delete z@(Zipper _ _ s r b)
                                 (s', r') = T.splitAt 1 x
                                 z' = z { selection = s', right = r', below = xs }
 
+-- | Appends a character to the left of the selection
 appendChar :: Char -> Zipper -> Zipper
 appendChar c z = z { left = snoc (left z) c }
 
+-- | Appends text to the left of the selection
 appendText :: Text -> Zipper -> Zipper
 appendText t z = z { left = T.append (left z) t }
+
+-- | Extends the cursor to include the sentence which encloses the current selection.
+--   Does not handle acronyms well.
+--
+-- >>> selectSentence sentences == sentences'
+-- True
+selectSentence :: Zipper -> Zipper
+selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
+   where
+      (l', onLeft) = case T.breakOnEnd ". " l of
+                        (start, "")            -> ("", start)
+                        (before, start)        -> (T.dropEnd 1 before, " " +++ start)
+      (onRight, r') = case T.breakOn ". " r of
+                        (end, "") -> (end, "")
+                        (end, start) -> (end +++ ".", T.drop 1 start)
+
+posDiff :: Integer -> Zipper -> Zipper -> (Integer, Integer)
+posDiff l a b = pairDiff (cursorStart l a) (cursorStart l b)
 
 numbers :: Zipper
 numbers = paragraph "1234" "5" "6789"
@@ -368,24 +424,8 @@ numbers = paragraph "1234" "5" "6789"
 sentences = paragraph "A sentence. An" "o" "ther. Final."
 sentences' = paragraph "A sentence." " Another." " Final."
 
-a +++ b = T.append a b
-
--- |
---
--- >>> selectSentence sentences == sentences'
--- True
-selectSentence :: Zipper -> Zipper
-selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ sr +++ ".") (T.drop 1 r') b
-   where
-      (l', onLeft) = case T.splitOn "." l of
-                        [] -> (l, "")
-                        xs -> (T.dropEnd (T.length onLeft) l, last xs)
-      (sr, r') = T.breakOn "." r
-
 -- | A zipper which can be manipulated in ghci in case a reviewer has trouble building the project.
 exampleZipper :: Zipper
 exampleZipper = Zipper ["This is a paragraph above.", "This is another one."]
                        "This is text on the left." " " "This is text on the right."
                        ["This is a paragraph below."]
-
-

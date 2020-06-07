@@ -27,8 +27,7 @@ main = do
    runCurses $ do
            setEcho False                    -- displaying to terminal handled manually
            let zipper = fromText (0, 0) text
-           startEditor $ TedState { mode = Insert, offset = 0, text = zipper, path = path }
-   return ()
+           runEditor $ TedState { mode = Insert, offset = 0, text = zipper, path = path }
 
 -- | Returns a file path based on the command line argument and returns that path along with empty
 --   Text or the contents of the file, if it exists.
