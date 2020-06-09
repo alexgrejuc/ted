@@ -35,9 +35,13 @@ data TedState =
             , offset :: Integer
             , text   :: Zipper
             , path   :: String
+            , clip   :: Text
             }
 
 type MonadEditor a = StateT TedState Curses a
+
+startState :: Zipper -> String -> TedState
+startState z p = TedState { mode = Insert, offset = 0, text = z, path = p, clip = "" }
 
 runEditor :: TedState -> Curses ()
 runEditor = evalStateT $ do
@@ -61,11 +65,28 @@ handleEvent w e = do
                      s <- get
                      if mode s == Insert then insertEvent w e else editEvent w e
 
+copy :: MonadEditor ()
+copy = modify (\s -> s { clip = selection (text s) })
+
+paste :: Window -> MonadEditor ()
+paste w = do
+             s <- get
+             let clipped = clip s
+             tedRender w $ appendText clipped
+
 -- | Handles an edit mode event by making the corresponding zipper update and displaying it
 editEvent :: Window -> Event -> MonadEditor ()
-editEvent w (EventCharacter 's')   = tedRender w selectSentence
-editEvent w e@(EventSpecialKey k)  = if isArrowKey k then insertEvent w e else return ()
-editEvent w (EventCharacter 'q')   = do
+editEvent w (EventCharacter 'x')  = copy >> tedRender w delete
+editEvent w (EventCharacter 'c')  = copy
+editEvent w (EventCharacter 'C')  = paste w
+editEvent w (EventCharacter 'l')  = tedRender w toLower
+editEvent w (EventCharacter 'L')  = tedRender w toUpper
+editEvent w (EventCharacter 's')  = tedRender w selectSentence
+editEvent w (EventCharacter 'p')  = tedRender w selectParagraph
+editEvent w (EventCharacter 'd')  = tedRender w delete
+editEvent w (EventCharacter 'w')  = tedRender w selectWord
+editEvent w e@(EventSpecialKey k) = if isArrowKey k then insertEvent w e else return ()
+editEvent w (EventCharacter 'q')  = do
                                         s <- get
                                         let z = text s
                                         liftIO $ write (path s ++ ".ted") z

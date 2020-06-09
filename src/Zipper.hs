@@ -17,6 +17,10 @@ import qualified Data.Sequence as S
 import Data.Text (Text, snoc, uncons, unsnoc, cons, append)
 import qualified Data.Text as T
 
+import Data.Text.Manipulate
+import Data.Text.ICU (brkBreak, breakSentence, breaks)
+import Data.Text.ICU.Types
+
 type Position = (Integer, Integer)
 
 -- | A 2-d zipper representing the contents of a text file with newlines stripped.
@@ -105,7 +109,7 @@ toRows l z = displayLines z >>= fmap S.fromList (T.chunksOf (fromIntegral l))
          slen  = T.length s
          lines = T.chunksOf w $ combineLine z
          len   = length lines
-         topGap =  
+         topGap =
 -}
 
 takeTop :: Integer -> Integer -> Zipper -> Seq Text
@@ -439,17 +443,41 @@ appendText t z = z { left = T.append (left z) t }
 -- | Extends the cursor to include the sentence which encloses the current selection.
 --   Does not handle acronyms well.
 --
--- >>> selectSentence sentences == sentences'
+-- >>> selectSentence zSentences == zSentences'
 -- True
 selectSentence :: Zipper -> Zipper
 selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
    where
       (l', onLeft) = case T.breakOnEnd ". " l of
-                        (start, "")            -> ("", start)
+                        --(start, "")            -> ("", start)
                         (before, start)        -> (T.dropEnd 1 before, T.takeEnd 1 before +++ start)
       (onRight, r') = case T.breakOn ". " r of
                         (end, "") -> (end, "")
                         (end, start) -> (end +++ ".", T.drop 1 start)
+
+selectParagraph :: Zipper -> Zipper
+selectParagraph z = z { left = "", selection = combineLine z, right = "" }
+
+toSelection :: (Text -> Text) -> Zipper -> Zipper
+toSelection f z = z { selection = f (selection z) }
+
+toUpper :: Zipper -> Zipper
+toUpper = toSelection T.toUpper
+
+toLower :: Zipper -> Zipper
+toLower = toSelection T.toLower
+
+sentences t = map ((\s -> (s, T.length s)) . brkBreak) (breaks (breakSentence Current) (T.pack t))
+
+-- | Selects the text which is enclosed by some string s
+selectEnclosed :: Text -> Zipper -> Zipper
+selectEnclosed t (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
+   where
+      (l', onLeft) = T.breakOnEnd t l
+      (onRight, r') = T.breakOn t r
+
+selectWord :: Zipper -> Zipper
+selectWord = selectEnclosed " "
 
 posDiff :: Integer -> Zipper -> Zipper -> (Integer, Integer)
 posDiff l a b = pairDiff (cursorStart l a) (cursorStart l b)
@@ -457,8 +485,9 @@ posDiff l a b = pairDiff (cursorStart l a) (cursorStart l b)
 numbers :: Zipper
 numbers = paragraph "1234" "5" "6789"
 
-sentences = paragraph "A sentence. An" "o" "ther. Final."
-sentences' = paragraph "A sentence." " Another." " Final."
+
+zSentences = paragraph "A sentence. An" "o" "ther. Final."
+zSentences' = paragraph "A sentence." " Another." " Final."
 
 -- | A zipper which can be manipulated in ghci in case a reviewer has trouble building the project.
 exampleZipper :: Zipper

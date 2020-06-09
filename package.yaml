@@ -27,6 +27,8 @@ dependencies:
 - containers
 - text
 - mtl
+- text-manipulate
+- text-icu
 
 library:
   source-dirs: src
