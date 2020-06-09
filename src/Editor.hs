@@ -63,12 +63,13 @@ handleEvent w e = do
 
 -- | Handles an edit mode event by making the corresponding zipper update and displaying it
 editEvent :: Window -> Event -> MonadEditor ()
-editEvent w (EventCharacter 's')   = tedRender w (delete . selectSentence)
+editEvent w (EventCharacter 's')   = tedRender w selectSentence
 editEvent w e@(EventSpecialKey k)  = if isArrowKey k then insertEvent w e else return ()
 editEvent w (EventCharacter 'q')   = do
                                         s <- get
                                         let z = text s
                                         liftIO $ write (path s ++ ".ted") z
+                                        liftIO $ appendFile (path s ++ ".ted") ("\n\n" ++ show z)
                                         liftIO exitSuccess
 editEvent w e                      = return () -- ignore everything else (e.g. mouse clicks)
 
@@ -93,21 +94,41 @@ draw o z = do
             selectionColor <- newColorID ColorRed ColorBlack 5
             w <- defaultWindow
             (lines, cols) <- screenSize
-            let (r, c) = cursorStart (cols - 1) z
+            let (sr, sc) = cursorStart (cols - 1) z
+                (er, ec) = cursorEnd (cols - 1) z
             let rows = S.take (fromIntegral lines) (S.drop (fromIntegral o) (toRows (cols - 1) z))
+            let rows' = rows >< S.replicate ((fromIntegral lines) - S.length rows) ""
             updateWindow w (do
-                              setColor defaultColorID
-                              draw' selectionColor rows 0
-                              moveCursor (r - o) c
-                           )
+                              draw' selectionColor rows' 0 (sr, sc, er, ec)
+                              moveCursor (sr - o) sc
+                            )
    where
-      draw' c []     _   = return ()
-      draw' c [x]    r   = moveCursor r 0 >> drawText x >> clearLine
-      draw' c (x:<|xs) r = do
+      draw' c []     _   _ = return ()
+      draw' c (x:<|xs) r bounds@(sr, sc, er, ec) = do
                            moveCursor r 0
-                           drawText x
+                           let r' = r + o
+                           if (r' /= sr && r' /= er) then drawText x else (do
+                              if r' == sr
+                                 then do
+                                       let (l, s) = T.splitAt sc' x
+                                       drawText l
+                                       let s' = if r' == er then fst (T.splitAt (ec' - sc' + 1) s)
+                                                           else s
+                                       setColor c
+                                       drawText s'
+                                 else return ()
+                              if r' == er
+                                 then do
+                                       let (l, rest) = T.splitAt (ec' + 1) x
+                                       let l' = if r' == sr then "" else l
+                                       drawText l'
+                                       setColor defaultColorID
+                                       drawText rest
+                                 else return ())
                            clearLine
-                           draw' c xs (r + 1)
+                           draw' c xs (r + 1) bounds
+         where
+            (sc', ec') = (fromIntegral sc, fromIntegral ec)
 
 -- | Updates the display based on the state of the zipper.
 tedRender :: Window -> (Zipper -> Zipper) -> MonadEditor ()

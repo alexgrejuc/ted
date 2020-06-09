@@ -97,6 +97,42 @@ displayLines z = fmap (\l -> if l == "" then " " else l) (toLines z)
 toRows :: Integer -> Zipper -> Seq Text
 toRows l z = displayLines z >>= fmap S.fromList (T.chunksOf (fromIntegral l))
 
+{-toRows' w h o z@(Zipper a l s r b) =
+   if slen >= w * h then S.fromList (take h (T.chunksOf w s))
+   else
+
+      where
+         slen  = T.length s
+         lines = T.chunksOf w $ combineLine z
+         len   = length lines
+         topGap =  
+-}
+
+takeTop :: Integer -> Integer -> Zipper -> Seq Text
+takeTop w n (Zipper a _ _ _ _) = if n > 0 then takeTop' (fromIntegral w) (fromIntegral n) a else []
+   where
+      takeTop' w n [] = []
+      takeTop' w n (xs :|> x) = if len >= n
+                                then fromEnd
+                                else takeTop' w (n - len) xs >< fromEnd
+                                 where
+                                    lins  = S.fromList (T.chunksOf w x)
+                                    lins' = if S.null lins then [""] else lins
+                                    len = S.length lins'
+                                    fromEnd = S.reverse $ S.take n (S.reverse lins')
+
+takeBottom :: Integer -> Integer -> Zipper -> Seq Text
+takeBottom w n (Zipper _ _ _ _ b) = if n >= 0 then takeBottom' (fromIntegral w) (fromIntegral n) b else []
+   where
+      takeBottom' w n [] = []
+      takeBottom' w n (x :<| xs) = if len >= n
+                                    then fromStart
+                                    else fromStart >< takeBottom' w (n - len) xs
+                                       where
+                                          lins = S.fromList (T.chunksOf w x)
+                                          lins' = if S.null lins then [""] else lins
+                                          len = S.length lins'
+                                          fromStart = S.take n lins'
 atBottom :: Zipper -> Bool
 atBottom (Zipper _ _ _ _ []) = True
 atBottom _                   = False
@@ -410,7 +446,7 @@ selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
    where
       (l', onLeft) = case T.breakOnEnd ". " l of
                         (start, "")            -> ("", start)
-                        (before, start)        -> (T.dropEnd 1 before, " " +++ start)
+                        (before, start)        -> (T.dropEnd 1 before, T.takeEnd 1 before +++ start)
       (onRight, r') = case T.breakOn ". " r of
                         (end, "") -> (end, "")
                         (end, start) -> (end +++ ".", T.drop 1 start)
@@ -426,6 +462,6 @@ sentences' = paragraph "A sentence." " Another." " Final."
 
 -- | A zipper which can be manipulated in ghci in case a reviewer has trouble building the project.
 exampleZipper :: Zipper
-exampleZipper = Zipper ["This is a paragraph above.", "This is another one."]
+exampleZipper = Zipper ["This is a paragraph above.", "", "This is another one."]
                        "This is text on the left." " " "This is text on the right."
-                       ["This is a paragraph below."]
+                       ["This is a paragraph below.", "", "This is more text"]
