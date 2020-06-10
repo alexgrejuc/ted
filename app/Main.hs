@@ -40,7 +40,7 @@ start = do
          if exists
             then do
                text <- I.readFile path
-               return (path, text)
+               return (path, T.replace "\t" "    " text)
             else return (path, "")
       _ -> do
          putStrLn $ "Must enter exactly 1 argument. You entered " ++ (show (length args))

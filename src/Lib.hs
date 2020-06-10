@@ -28,6 +28,11 @@ both f (a,b) = (f a, f b)
 concatWith :: (Monoid a, Foldable t) => a -> t a -> a
 concatWith a xs = foldr (\x acc -> (mappend x a) `mappend` acc) mempty xs
 
+-- | Concatenate the elements of a container. For use with Seq since I couldn't use the prelude
+--   version on it
+concatS :: (Monoid a, Foldable t) => t a -> a
+concatS xs = foldr (\x acc -> x `mappend` acc) mempty xs
+
 -- | Split a Seq a into (init, last)
 seqUnsnoc :: Seq a -> (Seq a, a)
 seqUnsnoc (xs:|>x) = (xs, x)
@@ -42,3 +47,7 @@ pairDiff l r = (fst r - fst l, snd r - snd l)
 -- | Append operator for Text
 (+++) :: Text -> Text -> Text
 a +++ b = T.append a b
+
+-- | Rounds up to a positive multiple of some base 
+roundUp 0 b = b
+roundUp a b = let remainder = a `mod` b in if remainder == 0 then a else a + b - remainder

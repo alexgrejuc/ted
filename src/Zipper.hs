@@ -21,7 +21,7 @@ import Data.Text.Manipulate
 import Data.Text.ICU (brkBreak, breakSentence, breaks)
 import Data.Text.ICU.Types
 
-type Position = (Integer, Integer)
+type Position = (Int, Int)
 
 -- | A 2-d zipper representing the contents of a text file with newlines stripped.
 --   A paragraph is represented by the Text to the left of the currently-selected contents, and the
@@ -54,16 +54,16 @@ paragraph l s r = makeZipper [] l s r []
 --   >>> fromLine 0 "123456789" == paragraph "" "1" "23456789"
 --   True
 --
-fromLine :: Integer -> Text -> Zipper
+fromLine :: Int -> Text -> Zipper
 fromLine _ "" = emptyZipper
 fromLine x t  = paragraph "" s r
    where
-      (s,r) = T.splitAt (fromIntegral x + 1) t
+      (s,r) = T.splitAt (x + 1) t
 
 -- | Split a Seq Text into (above, selection, below) at the specified row (0-indexed).
-splitThree :: Integer -> Seq Text -> (Seq Text, Text, Seq Text)
+splitThree :: Int -> Seq Text -> (Seq Text, Text, Seq Text)
 splitThree _ Empty = ([], "", [])
-splitThree n l     = case S.splitAt (fromIntegral n + 1) l of
+splitThree n l     = case S.splitAt (n + 1) l of
                         (xs:|>x, r)  -> (xs, x, r)
                         ([x], r)    -> ([], x, r)
                         (Empty, r)  -> ([], "", r) -- n == 0, not an actual use case
@@ -87,7 +87,7 @@ toLines :: Zipper -> Seq Text
 toLines z = above z >< combineLine z <| below z
 
 -- | Converts a Zipper into Text by interspersing newlines between all lines.
---   This implementation could use an efficiency tune-up, but that can be done later.
+--	  Obivated in editor by toText3 and only used for testing.
 --
 --   >>> let text = "1\n2\n3\n4\n" in let z = fromText (1,1) text in text == toText z
 --   True
@@ -95,46 +95,76 @@ toText :: Zipper -> Text
 toText (Zipper [] "" "" "" []) = ""
 toText z = concatWith "\n" $ toLines z
 
-displayLines :: Zipper -> Seq Text
-displayLines z = fmap (\l -> if l == "" then " " else l) (toLines z)
+parLen :: Zipper -> Int
+parLen (Zipper _ l s r _) = T.length l + T.length s + T.length r
 
-toRows :: Integer -> Zipper -> Seq Text
-toRows l z = displayLines z >>= fmap S.fromList (T.chunksOf (fromIntegral l))
+parLines :: Int -> Zipper -> Int
+parLines w z = (roundUp (parLen z) w) `div` w
 
-{-toRows' w h o z@(Zipper a l s r b) =
-   if slen >= w * h then S.fromList (take h (T.chunksOf w s))
-   else
-
-      where
-         slen  = T.length s
-         lines = T.chunksOf w $ combineLine z
-         len   = length lines
-         topGap =
--}
-
-takeTop :: Integer -> Integer -> Zipper -> Seq Text
-takeTop w n (Zipper a _ _ _ _) = if n > 0 then takeTop' (fromIntegral w) (fromIntegral n) a else []
+-- | Converts the visible portion of a Zipper into the text before the selection, the selection,
+--   and the text after the selection
+toText3 :: Int -> Int -> Int -> Zipper -> (Text, Text, Text)
+toText3 w h o z@(Zipper a l s r b) =
+   if T.length s >= w * h
+   then ("", T.take (w * h) s, "")
+   else (l' +++ remL, s, remR +++ r')
    where
+      (sc, ec)   = cursorCol w z
+      (sr, er)   = cursorRow w z
+      remL       = T.takeEnd sc l
+      fromTop    = sr - o
+      l'         = concatS (takeTop w fromTop z)
+      remR       = T.take ((w - ec - 1)) r
+      fromBottom = h - (er + 1 - o)
+      r'         = concatS (takeBottom w fromBottom z)
+
+-- | Takes n lines of length w (or ending in a newline) from the text which precedes the first line 
+--   of the current selection 
+takeTop :: Int -> Int -> Zipper -> Seq Text
+takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentPar else []
+   where
+      -- first grab lines before the first line of the selection but in the same paragraph
+      sc             = fst $ cursorCol w z
+      (l', remL)     = (T.dropEnd sc l, T.takeEnd (sc) l)
+      fromCurrentPar = S.fromList $ T.chunksOf w l'
+      n'             = n - S.length fromCurrentPar
+      
+      -- then take from the preceding paragraphs 
       takeTop' w n [] = []
       takeTop' w n (xs :|> x) = if len >= n
                                 then fromEnd
                                 else takeTop' w (n - len) xs >< fromEnd
                                  where
                                     lins  = S.fromList (T.chunksOf w x)
-                                    lins' = if S.null lins then [""] else lins
+                                    lins' = case lins of
+                                             xs :|> x -> xs |> (x +++ "\n")
+                                             _        -> ["\n"]
                                     len = S.length lins'
                                     fromEnd = S.reverse $ S.take n (S.reverse lins')
 
-takeBottom :: Integer -> Integer -> Zipper -> Seq Text
-takeBottom w n (Zipper _ _ _ _ b) = if n >= 0 then takeBottom' (fromIntegral w) (fromIntegral n) b else []
+-- | Takes n lines of length w (or ending in a newline) from the text which follows the last line of 
+--   the current selection 
+takeBottom :: Int -> Int -> Zipper -> Seq Text
+takeBottom w n z@(Zipper _ _ _ r b) = if n > 0
+                                      then (fromCurrentPar |> "\n") >< takeBottom' w n' b 
+                                      else []
    where
+      -- first grab lines after the final line of the selection but in the same paragraph
+      ec         = snd $ cursorCol w z
+      (remR, r') = (T.take ((w - ec - 1)) r, T.drop ((w - ec - 1)) r)
+      fromCurrentPar = S.fromList $ T.chunksOf w r'
+      n'        = n - S.length fromCurrentPar
+     
+      -- then take from the following paragraphs 
       takeBottom' w n [] = []
       takeBottom' w n (x :<| xs) = if len >= n
                                     then fromStart
                                     else fromStart >< takeBottom' w (n - len) xs
                                        where
                                           lins = S.fromList (T.chunksOf w x)
-                                          lins' = if S.null lins then [""] else lins
+                                          lins' = case lins of
+                                             xs :|> x -> xs |> (x +++ "\n")
+                                             _        -> ["\n"]
                                           len = S.length lins'
                                           fromStart = S.take n lins'
 atBottom :: Zipper -> Bool
@@ -171,7 +201,7 @@ upPar z@(Zipper a l s r b) = case a of
       b'            = oldLine <| b
 
 -- | Moves up n rows
-upPars :: Integer -> Zipper -> Zipper
+upPars :: Int -> Zipper -> Zipper
 upPars = appFix upPar
 
 -- | Moves the cursor down one row.
@@ -193,7 +223,7 @@ downPar z@(Zipper a l s r b) = case b of
       a'            = a |> oldLine
 
 -- | Moves down n rows
-downPars :: Integer -> Zipper -> Zipper
+downPars :: Int -> Zipper -> Zipper
 downPars = appFix downPar
 
 -- | Moves the cursor left one column or to the end of the previous paragraph if at the leftmost
@@ -216,7 +246,7 @@ stepLeft z@(Zipper a l s r b) =
                         xs:|>x -> Zipper xs x "" "" ((combineLine z) <| b)
 
 -- | Moves left n times
-goLeft :: Integer -> Zipper -> Zipper
+goLeft :: Int -> Zipper -> Zipper
 goLeft = appFix stepLeft
 
 -- | Moves the cursor right one column.
@@ -236,12 +266,12 @@ stepRight z@(Zipper a l s r b) = case uncons r of
                   Just (s', r') -> Zipper a (append l s) [s'] r' b
 
 -- | Moves right n columns
-goRight :: Integer -> Zipper -> Zipper
+goRight :: Int -> Zipper -> Zipper
 goRight = appFix stepRight
 
 -- | Performs a move on a zipper (row, column).
 --   Vertically relative, horizontally relative to the x position after the vertical move.
-go :: Integer -> (Integer, Integer) -> Zipper -> Zipper
+go :: Int -> (Int, Int) -> Zipper -> Zipper
 go l (y, x) z
    | y > 0     = go l (0, x) $ goDown y l z
    | y < 0     = go l (0, x) $ goUp (abs y) l z
@@ -265,10 +295,10 @@ go l (y, x) z
 --
 --   >>> stepDown 4 (Zipper [] "lin" "e" "l" ["not here"]) == Zipper [] "linel" "" "" ["not here"]
 --   True
-stepDown :: Integer -> Zipper -> Zipper
+stepDown :: Int -> Zipper -> Zipper
 stepDown len z@(Zipper a l s r b) = if atBottom then drop else wrap
    where
-      llen       = fromIntegral len
+      llen       = len
       leftChars  = T.length l
       col        = leftChars `mod` llen
       atBottom   = col + 1 + (T.length s) + (T.length r) < llen
@@ -283,7 +313,7 @@ stepDown len z@(Zipper a l s r b) = if atBottom then drop else wrap
                            (l', r')     = T.splitAt col top
                            (s', r'')    = T.splitAt 1 r'
 
-goDown :: Integer -> Integer -> Zipper -> Zipper
+goDown :: Int -> Int -> Zipper -> Zipper
 goDown n len z = appFix (stepDown len) n z
 
 -- | Moves up one visual line (e.g. n characters, the length of a line on the screen)
@@ -300,7 +330,7 @@ goDown n len z = appFix (stepDown len) n z
 --   >>> stepUp 10 (Zipper ["ab"] "cdef" "g" "h" []) == Zipper [] "ab" "" "" ["cdefgh"]
 --   True
 --
-stepUp :: Integer -> Zipper -> Zipper
+stepUp :: Int -> Zipper -> Zipper
 stepUp len z@(Zipper a l s r _)
    | charsLeft >= llen = let (l', r') = T.splitAt (charsLeft - llen) l in
                          let r''      = T.append (T.drop 1 r') (T.append s r) in
@@ -318,15 +348,12 @@ stepUp len z@(Zipper a l s r _)
                         b'             = (combineLine z) <| (below z)
    where
       charsLeft = (T.length l)
-      llen = fromIntegral len
+      llen = len
 
-goUp :: Integer -> Integer -> Zipper -> Zipper
+goUp :: Int -> Int -> Zipper -> Zipper
 goUp n len z = appFix (stepUp len) n z
 
-roundUp 0 b = b
-roundUp a b = let remainder = a `mod` b in if remainder == 0 then a else a + b - remainder
-
-selectionPos :: Integer -> Zipper -> (Position, Position)
+selectionPos :: Int -> Zipper -> (Position, Position)
 selectionPos len z = ((fst row, fst col), (snd row, snd col))
    where
       row = cursorRow len z
@@ -343,7 +370,7 @@ selectionPos len z = ((fst row, fst col), (snd row, snd col))
 --   >>> cursorStart 2 $ makeZipper ["0", "1", "2", "3"] "01234" "56" "6789" ["below"]
 --   (6,1)
 --
-cursorStart :: Integer -> Zipper -> Position
+cursorStart :: Int -> Zipper -> Position
 cursorStart len z = both fst (cursorRow len z, cursorCol len z)
 
 -- | Returns a 0-indexed (row, column) cursor position based on lines of length n
@@ -357,23 +384,27 @@ cursorStart len z = both fst (cursorRow len z, cursorCol len z)
 --   >>> cursorEnd 2 $ makeZipper ["0", "1", "2", "3"] "01234" "56" "789" ["below"]
 --   (7,0)
 --
-cursorEnd :: Integer -> Zipper -> Position
+cursorEnd :: Int -> Zipper -> Position
 cursorEnd len z = both snd (cursorRow len z, cursorCol len z)
 
+lsAbove :: Int -> Zipper -> Int
+lsAbove len (Zipper a _ _ _ _) = prevChars `div` len
+   where
+      prevChars = foldr (\p sum -> (roundUp (T.length p) len + sum)) 0 a
 
 -- | Returns a 0-indexed (colStart, colEnd) cursor position based on lines of length n
-cursorCol :: Integer -> Zipper -> Position
+cursorCol :: Int -> Zipper -> Position
 cursorCol len (Zipper a l s _ _) = (start, end)
    where
-      onLeft = fromIntegral $ T.length l
+      onLeft = T.length l
       start  = onLeft `mod` len
-      end    = (onLeft + (fromIntegral (T.length (T.drop 1 s)))) `mod` len
+      end    = (onLeft + ((T.length (T.drop 1 s)))) `mod` len
 
 -- | Returns a 0-indexed (rowStart, rowEnd) cursor position based on lines of length n
-cursorRow :: Integer -> Zipper -> Position
-cursorRow len (Zipper a l s _ _) = both fromIntegral (start, end)
+cursorRow :: Int -> Zipper -> Position
+cursorRow len (Zipper a l s _ _) = (start, end)
    where
-      len' = fromIntegral len
+      len' = len
       prevChars = foldr (\p sum -> (roundUp (T.length p) len' + sum)) 0 a
       linesAbove = prevChars `div` len'
       start = linesAbove + (T.length l `div` len')
@@ -449,7 +480,6 @@ selectSentence :: Zipper -> Zipper
 selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
    where
       (l', onLeft) = case T.breakOnEnd ". " l of
-                        --(start, "")            -> ("", start)
                         (before, start)        -> (T.dropEnd 1 before, T.takeEnd 1 before +++ start)
       (onRight, r') = case T.breakOn ". " r of
                         (end, "") -> (end, "")
@@ -458,6 +488,7 @@ selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
 selectParagraph :: Zipper -> Zipper
 selectParagraph z = z { left = "", selection = combineLine z, right = "" }
 
+-- | Applies a function to the selection
 toSelection :: (Text -> Text) -> Zipper -> Zipper
 toSelection f z = z { selection = f (selection z) }
 
@@ -479,12 +510,12 @@ selectEnclosed t (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' 
 selectWord :: Zipper -> Zipper
 selectWord = selectEnclosed " "
 
-posDiff :: Integer -> Zipper -> Zipper -> (Integer, Integer)
-posDiff l a b = pairDiff (cursorStart l a) (cursorStart l b)
+posDiff :: Int -> Zipper -> Zipper -> (Int, Int)
+posDiff l a b = pairDiff (cursorStart l a) (cursorEnd l b)
 
+-- example zipper for testing and debugging:
 numbers :: Zipper
 numbers = paragraph "1234" "5" "6789"
-
 
 zSentences = paragraph "A sentence. An" "o" "ther. Final."
 zSentences' = paragraph "A sentence." " Another." " Final."
@@ -494,3 +525,5 @@ exampleZipper :: Zipper
 exampleZipper = Zipper ["This is a paragraph above.", "", "This is another one."]
                        "This is text on the left." " " "This is text on the right."
                        ["This is a paragraph below.", "", "This is more text"]
+
+ez = Zipper ["abcde", "abcde"] "abc1234" "34" "5" ["abcde", "abcde"]
