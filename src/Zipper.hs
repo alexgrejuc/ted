@@ -449,7 +449,6 @@ selectSentence :: Zipper -> Zipper
 selectSentence (Zipper a l s r b) = Zipper a l' (onLeft +++ s +++ onRight) r' b
    where
       (l', onLeft) = case T.breakOnEnd ". " l of
-                        --(start, "")            -> ("", start)
                         (before, start)        -> (T.dropEnd 1 before, T.takeEnd 1 before +++ start)
       (onRight, r') = case T.breakOn ". " r of
                         (end, "") -> (end, "")

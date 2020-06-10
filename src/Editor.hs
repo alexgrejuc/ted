@@ -115,6 +115,20 @@ draw o z = do
             selectionColor <- newColorID ColorRed ColorBlack 5
             w <- defaultWindow
             (lines, cols) <- screenSize
+            let (sr, sc) = cursorStart cols z
+            updateWindow w (do
+                              drawText (T.replicate (fromIntegral (lines * cols)) "")
+                              moveCursor 0 0
+                              drawText (combineLine z)
+                              moveCursor (sr - o) sc
+                           )
+
+-- | Draws a zipper to the terminal. Skips offset o lines from the beginning of the zipper
+draw2 :: Integer -> Zipper -> Curses ()
+draw2 o z = do
+            selectionColor <- newColorID ColorRed ColorBlack 5
+            w <- defaultWindow
+            (lines, cols) <- screenSize
             let (sr, sc) = cursorStart (cols - 1) z
                 (er, ec) = cursorEnd (cols - 1) z
             let rows = S.take (fromIntegral lines) (S.drop (fromIntegral o) (toRows (cols - 1) z))
