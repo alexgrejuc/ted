@@ -112,61 +112,78 @@ toText3 w h o z@(Zipper a l s r b) =
       (sc, ec)   = cursorCol w z
       (sr, er)   = cursorRow w z
       remL       = T.takeEnd sc l
-      fromTop    = sr - o
-      l'         = concatS (takeTop w fromTop z)
+      slines     = er - sr + 1
+      fromTop    = o
+      l'         = concatS (S.take fromTop (takeTop w fromTop z))
       remR       = T.take ((w - ec - 1)) r
-      fromBottom = h - (er + 1 - o)
-      r'         = concatS (takeBottom w fromBottom z)
+      fromBottom = h - o - slines
+      r'         = concatS (S.take fromBottom (takeBottom w fromBottom z))
+
+splitStart :: Int -> Zipper -> (Text, Text)
+splitStart w z@(Zipper a l _ _ _) = (T.dropEnd sc l, T.takeEnd (sc) l)
+   where
+      sc             = fst $ cursorCol w z
 
 -- | Takes n lines of length w (or ending in a newline) from the text which precedes the first line
 --   of the current selection
 takeTop :: Int -> Int -> Zipper -> Seq Text
-takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentPar else []
+takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentPar' else []
    where
       -- first grab lines before the first line of the selection but in the same paragraph
-      sc             = fst $ cursorCol w z
-      (l', remL)     = (T.dropEnd sc l, T.takeEnd (sc) l)
+      (l', _)        = splitStart w z
       fromCurrentPar = S.fromList $ T.chunksOf w l'
-      n'             = n - S.length fromCurrentPar
+      len            = S.length fromCurrentPar
+      fromCurrentPar'= S.drop (len - n) fromCurrentPar
+      n'             = n - len
 
       -- then take from the preceding paragraphs
-      takeTop' w n [] = []
-      takeTop' w n (xs :|> x) = if len >= n
-                                then fromEnd
-                                else takeTop' w (n - len) xs >< fromEnd
-                                 where
-                                    lins  = S.fromList (T.chunksOf w x)
-                                    lins' = case lins of
-                                             xs :|> x -> xs |> (x +++ "\n")
-                                             _        -> ["\n"]
-                                    len = S.length lins'
-                                    fromEnd = S.reverse $ S.take n (S.reverse lins')
+      takeTop' w _ [] = []
+      takeTop' w n (xs :|> x)
+         | n <= 0 = []
+         | otherwise =
+                        if len >= n
+                        then fromEnd
+                        else takeTop' w (n - len) xs >< fromEnd
+                        where
+                           lins  = S.fromList (T.chunksOf w x)
+                           lins' = case lins of
+                                    xs :|> x -> xs |> (x +++ "\n")
+                                    _        -> ["\n"]
+                           len = S.length lins'
+                           fromEnd = S.reverse $ S.take n (S.reverse lins')
+
+splitEnd :: Int -> Zipper -> (Text, Text)
+splitEnd w z@(Zipper a _ _ r _) = (T.take ((w - ec - 1)) r, T.drop ((w - ec - 1)) r)
+   where
+      ec = snd $ cursorCol w z
 
 -- | Takes n lines of length w (or ending in a newline) from the text which follows the last line of
 --   the current selection
 takeBottom :: Int -> Int -> Zipper -> Seq Text
 takeBottom w n z@(Zipper _ _ _ r b) = if n > 0
-                                      then (fromCurrentPar |> "\n") >< takeBottom' w n' b
+                                      then ((S.take n fromCurrentPar) |> "\n") >< takeBottom' w n' b
                                       else []
    where
       -- first grab lines after the final line of the selection but in the same paragraph
-      ec         = snd $ cursorCol w z
-      (remR, r') = (T.take ((w - ec - 1)) r, T.drop ((w - ec - 1)) r)
+      (_, r') = splitEnd w z
       fromCurrentPar = S.fromList $ T.chunksOf w r'
       n'        = n - S.length fromCurrentPar
 
       -- then take from the following paragraphs
       takeBottom' w n [] = []
-      takeBottom' w n (x :<| xs) = if len >= n
-                                    then fromStart
-                                    else fromStart >< takeBottom' w (n - len) xs
-                                       where
-                                          lins = S.fromList (T.chunksOf w x)
-                                          lins' = case lins of
-                                             xs :|> x -> xs |> (x +++ "\n")
-                                             _        -> ["\n"]
-                                          len = S.length lins'
-                                          fromStart = S.take n lins'
+      takeBottom' w n (x :<| xs)
+         | n <= 0 = []
+         | otherwise =
+                        if len >= n
+                        then fromStart
+                        else fromStart >< takeBottom' w (n - len) xs
+                           where
+                              lins = S.fromList (T.chunksOf w x)
+                              lins' = case lins of
+                                 xs :|> x -> xs |> (x +++ "\n")
+                                 _        -> ["\n"]
+                              len = S.length lins'
+                              fromStart = S.take n lins'
 atBottom :: Zipper -> Bool
 atBottom (Zipper _ _ _ _ []) = True
 atBottom _                   = False
@@ -402,13 +419,12 @@ cursorCol len (Zipper a l s _ _) = (start, end)
 
 -- | Returns a 0-indexed (rowStart, rowEnd) cursor position based on lines of length n
 cursorRow :: Int -> Zipper -> Position
-cursorRow len (Zipper a l s _ _) = (start, end)
+cursorRow len z@(Zipper a l s _ _) = (start, end)
    where
-      len' = len
-      prevChars = foldr (\p sum -> (roundUp (T.length p) len' + sum)) 0 a
-      linesAbove = prevChars `div` len'
-      start = linesAbove + (T.length l `div` len')
-      end = linesAbove + ((T.length l + T.length (T.drop 1 s)) `div` len')
+      linesAbove = lsAbove len z
+      (l', _)    = splitStart len z
+      start = linesAbove + (T.length l' `div` len)
+      end = linesAbove + ((T.length l' + T.length (T.drop 1 s)) `div` len)
 
 -- | Creates a new line from the current selection
 --
@@ -526,4 +542,4 @@ exampleZipper = Zipper ["This is a paragraph above.", "", "This is another one."
                        "This is text on the left." " " "This is text on the right."
                        ["This is a paragraph below.", "", "This is more text"]
 
-ez = Zipper ["abcde", "abcde"] "abc1234" "34" "5" ["abcde", "abcde"]
+ez = Zipper ["abcde", "abcde"] "abc1234" "3" "5" ["abcde", "abcde"]
