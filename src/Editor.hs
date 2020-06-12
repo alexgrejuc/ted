@@ -90,7 +90,6 @@ editEvent w (EventCharacter 'q')  = do
                                         s <- get
                                         let z = text s
                                         liftIO $ write (path s ++ ".ted") z
-                                        liftIO $ appendFile (path s ++ ".ted") ("\n\n" ++ show z)
                                         liftIO exitSuccess
 editEvent w e                      = return () -- ignore everything else (e.g. mouse clicks)
 
@@ -124,19 +123,19 @@ draw o z = do
             selectionColor <- newColorID ColorRed ColorBlack 5
             w <- defaultWindow
             (lines, cols) <- screenSizeInt
-            let (_, er) = cursorRow cols z
             let (sr, sc) = cursorStart cols z
-            let (lef, sel, r) = toText3 cols (lines - 1) o z
+            let screenCol = if sr - o < 0 then 0 else sr - o
+            let (lef, sel, r) = toText3 cols (lines - 1) (screenCol) z
             updateWindow w (do
                               moveCursorInt 0 0
-                              drawText (T.replicate ((lines - 1) * cols) " ")
+                              drawText (T.replicate (lines * cols - 1) " ")
                               moveCursorInt 0 0
                               drawText lef
                               setColor selectionColor
                               drawText sel
                               setColor defaultColorID
                               drawText r
-                              moveCursorInt (sr - o) sc
+                              moveCursorInt (screenCol) sc
                            )
 
 -- | Updates the display based on the state of the zipper.
