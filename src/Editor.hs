@@ -32,10 +32,10 @@ data Mode = Insert | Edit
 
 data TedState =
    TedState { mode   :: Mode
-            , offset :: Int
+            , offset :: Int      -- ^ lines above top of the window
             , text   :: Zipper
-            , path   :: String
-            , clip   :: Text
+            , path   :: String   -- ^ file path to save to
+            , clip   :: Text     -- ^ clipboard contents
             }
 
 type MonadEditor a = StateT TedState Curses a
@@ -109,9 +109,14 @@ act l k z
    | KeyDeleteCharacter == k = delete z
    | otherwise               = z
 
+moveCursorInt :: Int -> Int -> Update ()
 moveCursorInt r c = moveCursor (fromIntegral r) (fromIntegral c)
+
+screenSizeInt :: Curses (Int, Int)
 screenSizeInt = fmap (both fromIntegral) screenSize
-getCursorInt  = liftM (both fromIntegral) . getCursor
+
+getCursorInt :: Window -> Curses (Int, Int)
+getCursorInt = liftM (both fromIntegral) . getCursor
 
 -- | Draws a zipper to the terminal. Skips offset o lines from the beginning of the zipper
 draw :: Int -> Zipper -> Curses ()

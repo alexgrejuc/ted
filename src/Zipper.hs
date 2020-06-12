@@ -118,8 +118,8 @@ toText3 w h o z@(Zipper a l s r b) =
       fromBottom = h - (er + 1 - o)
       r'         = concatS (takeBottom w fromBottom z)
 
--- | Takes n lines of length w (or ending in a newline) from the text which precedes the first line 
---   of the current selection 
+-- | Takes n lines of length w (or ending in a newline) from the text which precedes the first line
+--   of the current selection
 takeTop :: Int -> Int -> Zipper -> Seq Text
 takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentPar else []
    where
@@ -128,8 +128,8 @@ takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentP
       (l', remL)     = (T.dropEnd sc l, T.takeEnd (sc) l)
       fromCurrentPar = S.fromList $ T.chunksOf w l'
       n'             = n - S.length fromCurrentPar
-      
-      -- then take from the preceding paragraphs 
+
+      -- then take from the preceding paragraphs
       takeTop' w n [] = []
       takeTop' w n (xs :|> x) = if len >= n
                                 then fromEnd
@@ -142,11 +142,11 @@ takeTop w n z@(Zipper a l _ _ _) = if n > 0 then takeTop' w n' a >< fromCurrentP
                                     len = S.length lins'
                                     fromEnd = S.reverse $ S.take n (S.reverse lins')
 
--- | Takes n lines of length w (or ending in a newline) from the text which follows the last line of 
---   the current selection 
+-- | Takes n lines of length w (or ending in a newline) from the text which follows the last line of
+--   the current selection
 takeBottom :: Int -> Int -> Zipper -> Seq Text
 takeBottom w n z@(Zipper _ _ _ r b) = if n > 0
-                                      then (fromCurrentPar |> "\n") >< takeBottom' w n' b 
+                                      then (fromCurrentPar |> "\n") >< takeBottom' w n' b
                                       else []
    where
       -- first grab lines after the final line of the selection but in the same paragraph
@@ -154,8 +154,8 @@ takeBottom w n z@(Zipper _ _ _ r b) = if n > 0
       (remR, r') = (T.take ((w - ec - 1)) r, T.drop ((w - ec - 1)) r)
       fromCurrentPar = S.fromList $ T.chunksOf w r'
       n'        = n - S.length fromCurrentPar
-     
-      -- then take from the following paragraphs 
+
+      -- then take from the following paragraphs
       takeBottom' w n [] = []
       takeBottom' w n (x :<| xs) = if len >= n
                                     then fromStart
