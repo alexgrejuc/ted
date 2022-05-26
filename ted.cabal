@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.2.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a1e6e52000c1f1d6eeb93d1bb4c4e3c4709739fe19dc37bf5ed5c7127399ebef
+-- hash: 0ad2aba746de23b1eb84a495d2eff2aea4297650496ce06d328e91014821003c
 
 name:           ted
 version:        0.1.0.0
@@ -48,8 +48,6 @@ library
 
 executable ted-exe
   main-is: Main.hs
-  other-modules:
-      Paths_ted
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N

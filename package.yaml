@@ -43,6 +43,11 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - ted
+    # when condition below fixes warning due to hpack bug
+    # https://github.com/commercialhaskell/stack/issues/5439#issuecomment-735850892
+    when:
+    - condition: false
+      other-modules: Paths_ted
 
 tests:
   ted-test:
