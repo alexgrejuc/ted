@@ -11,6 +11,13 @@ packages:
       sha256: 093bdc85ed518c81724f5b6b81c24ab4ebdd231551861f4feaa43361136f70b7
   original:
     hackage: ncurses-0.2.16
+- completed:
+    hackage: text-icu-0.7.1.0@sha256:6cd1b5a22f7271dc67bab3904dd5f631c93b0c6f2aacbfb07bd139810c4d1668,3646
+    pantry-tree:
+      size: 2307
+      sha256: 60034a5492ff1778c1953f3621a00341acda6d5db3677d9829c3d8c1cd45db9e
+  original:
+    hackage: text-icu-0.7.1.0
 snapshots:
 - completed:
     size: 494638
