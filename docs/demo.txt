@@ -1,0 +1,23 @@
+ted has basic functionality for viewing, editing and creating prose text files.
+
+It has an insert and edit mode.
+
+It starts out in insert mode, which supports:
+
+* Navigating with arrow keys
+* Inserting text
+* Removing text with the backspace key
+
+While code editors navigate vertically over newlines, ted navigates vertically over lines as they appear visually.
+
+Pressing escape toggles the mode.
+
+Edit mode supports:
+
+* Navigating with arrow keys
+* Selecting the current word or sentence. And the current paragraph.
+* Cutting, copying, and pasting the selection.
+* Toggling the case of the selection.
+* Deleting the selection.
+* Saving the file to <filename>.ted and quitting
+
