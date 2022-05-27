@@ -6,6 +6,8 @@ It is intended to be used for prose rather than code. Like [Vim](https://www.vim
 
 A 70 second demo video is available [here](https://media.oregonstate.edu/media/t/1_01l6076t) and a report on the design of the project is available [here](docs/report.pdf).
 
+The haddock-generated source code documentation can be viewed [here](https://web.engr.oregonstate.edu/~grejuca/ted-haddock/index.html).
+
 ### How to use it
 Clone the repository and navigate into it. The important source code files are in [app/](app/) and [src/](src/).
 

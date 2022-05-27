@@ -1,0 +1,683 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">{-|
+Module      : Editor
+Description : IO manipulation of a Text Zipper and corresponding display changes
+
+The code for mapping user actions via keyboard to operations on the zipper and to the display.
+-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE ViewPatterns, PatternSynonyms, OverloadedLists, OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Editor</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">UI.NCurses</span></span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Zipper.html"><span class="hs-identifier">Zipper</span></a></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Lib.html"><span class="hs-identifier">Lib</span></a></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">I</span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Sequence</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Seq</span></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-identifier">Empty</span></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-operator">(:&lt;|)</span></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-operator">(:|&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Sequence</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.State</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Debug.Trace</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Exit</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="Mode"><span class="annot"><a href="Editor.html#Mode"><span class="hs-identifier hs-var">Mode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Insert"><span class="annot"><a href="Editor.html#Insert"><span class="hs-identifier hs-var">Insert</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Edit"><span class="annot"><a href="Editor.html#Edit"><span class="hs-identifier hs-var">Edit</span></a></span></span><span>
+</span><span id="line-31"></span><span>   </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679070784"><span id="local-6989586621679070786"><span id="local-6989586621679070788"><span class="annot"><span class="annottext">Int -&gt; Mode -&gt; ShowS
+[Mode] -&gt; ShowS
+Mode -&gt; String
+(Int -&gt; Mode -&gt; ShowS)
+-&gt; (Mode -&gt; String) -&gt; ([Mode] -&gt; ShowS) -&gt; Show Mode
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Mode] -&gt; ShowS
+$cshowList :: [Mode] -&gt; ShowS
+show :: Mode -&gt; String
+$cshow :: Mode -&gt; String
+showsPrec :: Int -&gt; Mode -&gt; ShowS
+$cshowsPrec :: Int -&gt; Mode -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070779"><span id="local-6989586621679070781"><span class="annot"><span class="annottext">Mode -&gt; Mode -&gt; Bool
+(Mode -&gt; Mode -&gt; Bool) -&gt; (Mode -&gt; Mode -&gt; Bool) -&gt; Eq Mode
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Mode -&gt; Mode -&gt; Bool
+$c/= :: Mode -&gt; Mode -&gt; Bool
+== :: Mode -&gt; Mode -&gt; Bool
+$c== :: Mode -&gt; Mode -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">data</span><span> </span><span id="TedState"><span class="annot"><a href="Editor.html#TedState"><span class="hs-identifier hs-var">TedState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-34"></span><span>   </span><span id="TedState"><span class="annot"><a href="Editor.html#TedState"><span class="hs-identifier hs-var">TedState</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="mode"><span class="annot"><span class="annottext">TedState -&gt; Mode
+</span><a href="Editor.html#mode"><span class="hs-identifier hs-var hs-var">mode</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Editor.html#Mode"><span class="hs-identifier hs-type">Mode</span></a></span><span>
+</span><span id="line-35"></span><span>            </span><span class="hs-special">,</span><span> </span><span id="offset"><span class="annot"><span class="annottext">TedState -&gt; Int
+</span><a href="Editor.html#offset"><span class="hs-identifier hs-var hs-var">offset</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>      </span><span class="hs-comment">-- ^ lines above top of the window</span><span>
+</span><span id="line-36"></span><span>            </span><span class="hs-special">,</span><span> </span><span id="text"><span class="annot"><span class="annottext">TedState -&gt; Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var hs-var">text</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span>
+</span><span id="line-37"></span><span>            </span><span class="hs-special">,</span><span> </span><span id="path"><span class="annot"><span class="annottext">TedState -&gt; String
+</span><a href="Editor.html#path"><span class="hs-identifier hs-var hs-var">path</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>   </span><span class="hs-comment">-- ^ file path to save to</span><span>
+</span><span id="line-38"></span><span>            </span><span class="hs-special">,</span><span> </span><span id="clip"><span class="annot"><span class="annottext">TedState -&gt; Text
+</span><a href="Editor.html#clip"><span class="hs-identifier hs-var hs-var">clip</span></a></span></span><span>   </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>     </span><span class="hs-comment">-- ^ clipboard contents</span><span>
+</span><span id="line-39"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">type</span><span> </span><span id="MonadEditor"><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-var">MonadEditor</span></a></span></span><span> </span><span id="local-6989586621679070770"><span class="annot"><a href="#local-6989586621679070770"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateT</span></span><span> </span><span class="annot"><a href="Editor.html#TedState"><span class="hs-identifier hs-type">TedState</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Curses</span></span><span> </span><span class="annot"><a href="#local-6989586621679070770"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><a href="Editor.html#startState"><span class="hs-identifier hs-type">startState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#TedState"><span class="hs-identifier hs-type">TedState</span></a></span><span>
+</span><span id="line-44"></span><span id="startState"><span class="annot"><span class="annottext">startState :: Zipper -&gt; String -&gt; TedState
+</span><a href="Editor.html#startState"><span class="hs-identifier hs-var hs-var">startState</span></a></span></span><span> </span><span id="local-6989586621679070768"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070768"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span id="local-6989586621679070767"><span class="annot"><span class="annottext">p :: String
+</span><a href="#local-6989586621679070767"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TedState :: Mode -&gt; Int -&gt; Zipper -&gt; String -&gt; Text -&gt; TedState
+</span><a href="Editor.html#TedState"><span class="hs-identifier hs-type hs-type">TedState</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">mode :: Mode
+</span><a href="Editor.html#mode"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mode
+</span><a href="Editor.html#Insert"><span class="hs-identifier hs-var">Insert</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">offset :: Int
+</span><a href="Editor.html#offset"><span class="hs-identifier hs-var">offset</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">text :: Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var">text</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070768"><span class="hs-identifier hs-var">z</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">path :: String
+</span><a href="Editor.html#path"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679070767"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">clip :: Text
+</span><a href="Editor.html#clip"><span class="hs-identifier hs-var">clip</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Editor.html#runEditor"><span class="hs-identifier hs-type">runEditor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Editor.html#TedState"><span class="hs-identifier hs-type">TedState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Curses</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span id="runEditor"><span class="annot"><span class="annottext">runEditor :: TedState -&gt; Curses ()
+</span><a href="Editor.html#runEditor"><span class="hs-identifier hs-var hs-var">runEditor</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses () -&gt; TedState -&gt; Curses ()
+forall (m :: * -&gt; *) s a. Monad m =&gt; StateT s m a -&gt; s -&gt; m a
+</span><span class="hs-identifier hs-var">evalStateT</span></span><span> </span><span class="annot"><span class="annottext">(StateT TedState Curses () -&gt; TedState -&gt; Curses ())
+-&gt; StateT TedState Curses () -&gt; TedState -&gt; Curses ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-48"></span><span>   </span><span id="local-6989586621679070763"><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070763"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses Window -&gt; StateT TedState Curses Window
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">Curses Window
+</span><span class="hs-identifier hs-var">defaultWindow</span></span><span>
+</span><span id="line-49"></span><span>   </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070763"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-50"></span><span>   </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+</span><a href="Editor.html#eventLoop"><span class="hs-identifier hs-var">eventLoop</span></a></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><a href="Editor.html#eventLoop"><span class="hs-identifier hs-type">eventLoop</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span id="eventLoop"><span class="annot"><span class="annottext">eventLoop :: StateT TedState Curses ()
+</span><a href="Editor.html#eventLoop"><span class="hs-identifier hs-var hs-var">eventLoop</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-54"></span><span>      </span><span id="local-6989586621679070757"><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070757"><span class="hs-identifier hs-var">w</span></a></span></span><span>  </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses Window -&gt; StateT TedState Curses Window
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">Curses Window
+</span><span class="hs-identifier hs-var">defaultWindow</span></span><span>
+</span><span id="line-55"></span><span>      </span><span id="local-6989586621679070756"><span class="annot"><span class="annottext">Maybe Event
+</span><a href="#local-6989586621679070756"><span class="hs-identifier hs-var">ev</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses (Maybe Event) -&gt; StateT TedState Curses (Maybe Event)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Window -&gt; Maybe Integer -&gt; Curses (Maybe Event)
+</span><span class="hs-identifier hs-var">getEvent</span></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070757"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Integer
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe Event
+</span><a href="#local-6989586621679070756"><span class="hs-identifier hs-var">ev</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-57"></span><span>         </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+</span><a href="Editor.html#eventLoop"><span class="hs-identifier hs-var">eventLoop</span></a></span><span>
+</span><span id="line-58"></span><span>         </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679070754"><span class="annot"><span class="annottext">ev' :: Event
+</span><a href="#local-6989586621679070754"><span class="hs-identifier hs-var">ev'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-59"></span><span>                        </span><span class="annot"><span class="annottext">Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#handleEvent"><span class="hs-identifier hs-var">handleEvent</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070757"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Event
+</span><a href="#local-6989586621679070754"><span class="hs-identifier hs-var">ev'</span></a></span><span>
+</span><span id="line-60"></span><span>                        </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+</span><a href="Editor.html#eventLoop"><span class="hs-identifier hs-var">eventLoop</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Editor.html#handleEvent"><span class="hs-identifier hs-type">handleEvent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Event</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span id="handleEvent"><span class="annot"><span class="annottext">handleEvent :: Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#handleEvent"><span class="hs-identifier hs-var hs-var">handleEvent</span></a></span></span><span> </span><span id="local-6989586621679070752"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070752"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'\ESC'</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TedState -&gt; TedState) -&gt; StateT TedState Curses ()
+forall s (m :: * -&gt; *). MonadState s m =&gt; (s -&gt; s) -&gt; m ()
+</span><span class="hs-identifier hs-var">modify</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679070749"><span class="annot"><span class="annottext">s :: TedState
+</span><a href="#local-6989586621679070749"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070749"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">mode :: Mode
+</span><a href="Editor.html#mode"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mode -&gt; Mode
+</span><a href="Editor.html#toggleMode"><span class="hs-identifier hs-var">toggleMode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TedState -&gt; Mode
+</span><a href="Editor.html#mode"><span class="hs-identifier hs-var hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070749"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span class="annot"><a href="Editor.html#handleEvent"><span class="hs-identifier hs-var">handleEvent</span></a></span><span> </span><span id="local-6989586621679070747"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070747"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679070746"><span class="annot"><span class="annottext">e :: Event
+</span><a href="#local-6989586621679070746"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>                     </span><span id="local-6989586621679070745"><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070745"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses TedState
+forall s (m :: * -&gt; *). MonadState s m =&gt; m s
+</span><span class="hs-identifier hs-var">get</span></span><span>
+</span><span id="line-66"></span><span>                     </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">TedState -&gt; Mode
+</span><a href="Editor.html#mode"><span class="hs-identifier hs-var hs-var">mode</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070745"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Mode -&gt; Mode -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Mode
+</span><a href="Editor.html#Insert"><span class="hs-identifier hs-var">Insert</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var">insertEvent</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070747"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Event
+</span><a href="#local-6989586621679070746"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070747"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Event
+</span><a href="#local-6989586621679070746"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Editor.html#copy"><span class="hs-identifier hs-type">copy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span id="copy"><span class="annot"><span class="annottext">copy :: StateT TedState Curses ()
+</span><a href="Editor.html#copy"><span class="hs-identifier hs-var hs-var">copy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TedState -&gt; TedState) -&gt; StateT TedState Curses ()
+forall s (m :: * -&gt; *). MonadState s m =&gt; (s -&gt; s) -&gt; m ()
+</span><span class="hs-identifier hs-var">modify</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679070740"><span class="annot"><span class="annottext">s :: TedState
+</span><a href="#local-6989586621679070740"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070740"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">clip :: Text
+</span><a href="Editor.html#clip"><span class="hs-identifier hs-var">clip</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Text
+</span><a href="Zipper.html#selection"><span class="hs-identifier hs-var hs-var">selection</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TedState -&gt; Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var hs-var">text</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070740"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="annot"><a href="Editor.html#paste"><span class="hs-identifier hs-type">paste</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span id="paste"><span class="annot"><span class="annottext">paste :: Window -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#paste"><span class="hs-identifier hs-var hs-var">paste</span></a></span></span><span> </span><span id="local-6989586621679070737"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070737"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>             </span><span id="local-6989586621679070736"><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070736"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses TedState
+forall s (m :: * -&gt; *). MonadState s m =&gt; m s
+</span><span class="hs-identifier hs-var">get</span></span><span>
+</span><span id="line-74"></span><span>             </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679070735"><span class="annot"><span class="annottext">clipped :: Text
+</span><a href="#local-6989586621679070735"><span class="hs-identifier hs-var hs-var">clipped</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TedState -&gt; Text
+</span><a href="Editor.html#clip"><span class="hs-identifier hs-var hs-var">clip</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070736"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-75"></span><span>             </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070737"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">((Zipper -&gt; Zipper) -&gt; StateT TedState Curses ())
+-&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Zipper -&gt; Zipper
+</span><a href="Zipper.html#appendText"><span class="hs-identifier hs-var">appendText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679070735"><span class="hs-identifier hs-var">clipped</span></a></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- | Handles an edit mode event by making the corresponding zipper update and displaying it</span><span>
+</span><span id="line-78"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-type">editEvent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Event</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span id="editEvent"><span class="annot"><span class="annottext">editEvent :: Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#editEvent"><span class="hs-identifier hs-var hs-var">editEvent</span></a></span></span><span> </span><span id="local-6989586621679070733"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070733"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'x'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+</span><a href="Editor.html#copy"><span class="hs-identifier hs-var">copy</span></a></span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+-&gt; StateT TedState Curses () -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070733"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#delete"><span class="hs-identifier hs-var">delete</span></a></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070731"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070731"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'c'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses ()
+</span><a href="Editor.html#copy"><span class="hs-identifier hs-var">copy</span></a></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070730"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070730"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'C'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#paste"><span class="hs-identifier hs-var">paste</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070730"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-82"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070729"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070729"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'l'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070729"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#toLower"><span class="hs-identifier hs-var">toLower</span></a></span><span>
+</span><span id="line-83"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070727"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070727"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'L'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070727"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#toUpper"><span class="hs-identifier hs-var">toUpper</span></a></span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070725"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070725"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'s'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070725"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#selectSentence"><span class="hs-identifier hs-var">selectSentence</span></a></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070723"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070723"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'p'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070723"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#selectParagraph"><span class="hs-identifier hs-var">selectParagraph</span></a></span><span>
+</span><span id="line-86"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070721"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070721"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'d'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070721"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#delete"><span class="hs-identifier hs-var">delete</span></a></span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070720"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070720"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'w'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070720"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#selectWord"><span class="hs-identifier hs-var">selectWord</span></a></span><span>
+</span><span id="line-88"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070718"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070718"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679070717"><span class="annot"><span class="annottext">e :: Event
+</span><a href="#local-6989586621679070717"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventSpecialKey</span></span><span> </span><span id="local-6989586621679070715"><span class="annot"><span class="annottext">k :: Key
+</span><a href="#local-6989586621679070715"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Key -&gt; Bool
+</span><a href="Editor.html#isArrowKey"><span class="hs-identifier hs-var">isArrowKey</span></a></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070715"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var">insertEvent</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070718"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Event
+</span><a href="#local-6989586621679070717"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">() -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070713"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070713"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'q'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-90"></span><span>                                        </span><span id="local-6989586621679070712"><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070712"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses TedState
+forall s (m :: * -&gt; *). MonadState s m =&gt; m s
+</span><span class="hs-identifier hs-var">get</span></span><span>
+</span><span id="line-91"></span><span>                                        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679070711"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070711"><span class="hs-identifier hs-var hs-var">z</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TedState -&gt; Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var hs-var">text</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070712"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-92"></span><span>                                        </span><span class="annot"><span class="annottext">IO () -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; StateT TedState Curses ())
+-&gt; IO () -&gt; StateT TedState Curses ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Zipper -&gt; IO ()
+</span><a href="Editor.html#write"><span class="hs-identifier hs-var">write</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TedState -&gt; String
+</span><a href="Editor.html#path"><span class="hs-identifier hs-var hs-var">path</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070712"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="hs-string">&quot;.ted&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070711"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-93"></span><span>                                        </span><span class="annot"><span class="annottext">IO () -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">IO ()
+forall a. IO a
+</span><span class="hs-identifier hs-var">exitSuccess</span></span><span>
+</span><span id="line-94"></span><span class="annot"><a href="Editor.html#editEvent"><span class="hs-identifier hs-var">editEvent</span></a></span><span> </span><span id="local-6989586621679070707"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070707"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679070706"><span class="annot"><span class="annottext">e :: Event
+</span><a href="#local-6989586621679070706"><span class="hs-identifier hs-var">e</span></a></span></span><span>                      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ignore everything else (e.g. mouse clicks)</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- | Handles an insert mode event by making the corresponding zipper update and displaying it</span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Editor.html#insertEvent"><span class="hs-identifier hs-type">insertEvent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Event</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span id="insertEvent"><span class="annot"><span class="annottext">insertEvent :: Window -&gt; Event -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var hs-var">insertEvent</span></a></span></span><span> </span><span id="local-6989586621679070705"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070705"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventSpecialKey</span></span><span> </span><span id="local-6989586621679070704"><span class="annot"><span class="annottext">k :: Key
+</span><a href="#local-6989586621679070704"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070703"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679070703"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int)
+</span><a href="Editor.html#screenSizeInt"><span class="hs-identifier hs-var">screenSizeInt</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070705"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Key -&gt; Zipper -&gt; Zipper
+</span><a href="Editor.html#act"><span class="hs-identifier hs-var">act</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070703"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070704"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var">insertEvent</span></a></span><span> </span><span id="local-6989586621679070700"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070700"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span class="hs-char">'\n'</span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070700"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#split"><span class="hs-identifier hs-var">split</span></a></span><span>
+</span><span id="line-100"></span><span class="annot"><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var">insertEvent</span></a></span><span> </span><span id="local-6989586621679070698"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070698"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventCharacter</span></span><span> </span><span id="local-6989586621679070697"><span class="annot"><span class="annottext">c :: Char
+</span><a href="#local-6989586621679070697"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var">tedRender</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070698"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Zipper -&gt; Zipper
+</span><a href="Zipper.html#appendChar"><span class="hs-identifier hs-var">appendChar</span></a></span><span> </span><span class="annot"><span class="annottext">Char
+</span><a href="#local-6989586621679070697"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Editor.html#insertEvent"><span class="hs-identifier hs-var">insertEvent</span></a></span><span> </span><span id="local-6989586621679070695"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070695"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679070694"><span class="annot"><span class="annottext">e :: Event
+</span><a href="#local-6989586621679070694"><span class="hs-identifier hs-var">e</span></a></span></span><span>                      </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; StateT TedState Curses ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- ignore everything else (e.g. mouse clicks)</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- | Maps a key press to the corresponding operation on the zipper</span><span>
+</span><span id="line-104"></span><span class="annot"><a href="Editor.html#act"><span class="hs-identifier hs-type">act</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Key</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span>
+</span><span id="line-105"></span><span id="act"><span class="annot"><span class="annottext">act :: Int -&gt; Key -&gt; Zipper -&gt; Zipper
+</span><a href="Editor.html#act"><span class="hs-identifier hs-var hs-var">act</span></a></span></span><span> </span><span id="local-6989586621679070693"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679070693"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621679070692"><span class="annot"><span class="annottext">k :: Key
+</span><a href="#local-6989586621679070692"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621679070691"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span></span><span>
+</span><span id="line-106"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Key -&gt; Bool
+</span><a href="Editor.html#isArrowKey"><span class="hs-identifier hs-var">isArrowKey</span></a></span><span>            </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070692"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (Int, Int) -&gt; Zipper -&gt; Zipper
+</span><a href="Zipper.html#go"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070693"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Zipper -&gt; Key -&gt; (Int, Int)
+</span><a href="Editor.html#arrowToMove"><span class="hs-identifier hs-var">arrowToMove</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070693"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070692"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-107"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-identifier hs-var">KeyBackspace</span></span><span>       </span><span class="annot"><span class="annottext">Key -&gt; Key -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070692"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#backspace"><span class="hs-identifier hs-var">backspace</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-108"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-identifier hs-var">KeyDeleteCharacter</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Key -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070692"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="Zipper.html#delete"><span class="hs-identifier hs-var">delete</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-109"></span><span>   </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span>               </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070691"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Editor.html#moveCursorInt"><span class="hs-identifier hs-type">moveCursorInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Update</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span id="moveCursorInt"><span class="annot"><span class="annottext">moveCursorInt :: Int -&gt; Int -&gt; Update ()
+</span><a href="Editor.html#moveCursorInt"><span class="hs-identifier hs-var hs-var">moveCursorInt</span></a></span></span><span> </span><span id="local-6989586621679070684"><span class="annot"><span class="annottext">r :: Int
+</span><a href="#local-6989586621679070684"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span id="local-6989586621679070683"><span class="annot"><span class="annottext">c :: Int
+</span><a href="#local-6989586621679070683"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Update ()
+</span><span class="hs-identifier hs-var">moveCursor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Integer
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070684"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Integer
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070683"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="annot"><a href="Editor.html#screenSizeInt"><span class="hs-identifier hs-type">screenSizeInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Curses</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span id="screenSizeInt"><span class="annot"><span class="annottext">screenSizeInt :: Curses (Int, Int)
+</span><a href="Editor.html#screenSizeInt"><span class="hs-identifier hs-var hs-var">screenSizeInt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((Integer, Integer) -&gt; (Int, Int))
+-&gt; Curses (Integer, Integer) -&gt; Curses (Int, Int)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Integer -&gt; Int) -&gt; (Integer, Integer) -&gt; (Int, Int)
+forall a b. (a -&gt; b) -&gt; (a, a) -&gt; (b, b)
+</span><a href="Lib.html#both"><span class="hs-identifier hs-var">both</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Curses (Integer, Integer)
+</span><span class="hs-identifier hs-var">screenSize</span></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="annot"><a href="Editor.html#getCursorInt"><span class="hs-identifier hs-type">getCursorInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Curses</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span id="getCursorInt"><span class="annot"><span class="annottext">getCursorInt :: Window -&gt; Curses (Int, Int)
+</span><a href="Editor.html#getCursorInt"><span class="hs-identifier hs-var hs-var">getCursorInt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((Integer, Integer) -&gt; (Int, Int))
+-&gt; Curses (Integer, Integer) -&gt; Curses (Int, Int)
+forall (m :: * -&gt; *) a1 r. Monad m =&gt; (a1 -&gt; r) -&gt; m a1 -&gt; m r
+</span><span class="hs-identifier hs-var">liftM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Integer -&gt; Int) -&gt; (Integer, Integer) -&gt; (Int, Int)
+forall a b. (a -&gt; b) -&gt; (a, a) -&gt; (b, b)
+</span><a href="Lib.html#both"><span class="hs-identifier hs-var">both</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Curses (Integer, Integer) -&gt; Curses (Int, Int))
+-&gt; (Window -&gt; Curses (Integer, Integer))
+-&gt; Window
+-&gt; Curses (Int, Int)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Window -&gt; Curses (Integer, Integer)
+</span><span class="hs-identifier hs-var">getCursor</span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- | Draws a zipper to the terminal. Skips offset o lines from the beginning of the zipper</span><span>
+</span><span id="line-121"></span><span class="annot"><a href="Editor.html#draw"><span class="hs-identifier hs-type">draw</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Curses</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span id="draw"><span class="annot"><span class="annottext">draw :: Int -&gt; Zipper -&gt; Curses ()
+</span><a href="Editor.html#draw"><span class="hs-identifier hs-var hs-var">draw</span></a></span></span><span> </span><span id="local-6989586621679070674"><span class="annot"><span class="annottext">o :: Int
+</span><a href="#local-6989586621679070674"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span id="local-6989586621679070673"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070673"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-123"></span><span>            </span><span id="local-6989586621679070672"><span class="annot"><span class="annottext">ColorID
+</span><a href="#local-6989586621679070672"><span class="hs-identifier hs-var">selectionColor</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Color -&gt; Color -&gt; Integer -&gt; Curses ColorID
+</span><span class="hs-identifier hs-var">newColorID</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">ColorRed</span></span><span> </span><span class="annot"><span class="annottext">Color
+</span><span class="hs-identifier hs-var">ColorBlack</span></span><span> </span><span class="annot"><span class="hs-number">5</span></span><span>
+</span><span id="line-124"></span><span>            </span><span id="local-6989586621679070668"><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070668"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses Window
+</span><span class="hs-identifier hs-var">defaultWindow</span></span><span>
+</span><span id="line-125"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621679070667"><span class="annot"><span class="annottext">lines :: Int
+</span><a href="#local-6989586621679070667"><span class="hs-identifier hs-var">lines</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070666"><span class="annot"><span class="annottext">cols :: Int
+</span><a href="#local-6989586621679070666"><span class="hs-identifier hs-var">cols</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int)
+</span><a href="Editor.html#screenSizeInt"><span class="hs-identifier hs-var">screenSizeInt</span></a></span><span>
+</span><span id="line-126"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679070665"><span class="annot"><span class="annottext">sr :: Int
+</span><a href="#local-6989586621679070665"><span class="hs-identifier hs-var">sr</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070664"><span class="annot"><span class="annottext">sc :: Int
+</span><a href="#local-6989586621679070664"><span class="hs-identifier hs-var">sc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Zipper -&gt; (Int, Int)
+</span><a href="Zipper.html#cursorStart"><span class="hs-identifier hs-var">cursorStart</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070666"><span class="hs-identifier hs-var">cols</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070673"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-127"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679070662"><span class="annot"><span class="annottext">screenCol :: Int
+</span><a href="#local-6989586621679070662"><span class="hs-identifier hs-var hs-var">screenCol</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070665"><span class="hs-identifier hs-var">sr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070674"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070665"><span class="hs-identifier hs-var">sr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070674"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-128"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679070660"><span class="annot"><span class="annottext">lef :: Text
+</span><a href="#local-6989586621679070660"><span class="hs-identifier hs-var">lef</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070659"><span class="annot"><span class="annottext">sel :: Text
+</span><a href="#local-6989586621679070659"><span class="hs-identifier hs-var">sel</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070658"><span class="annot"><span class="annottext">r :: Text
+</span><a href="#local-6989586621679070658"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; Zipper -&gt; (Text, Text, Text)
+</span><a href="Zipper.html#toText3"><span class="hs-identifier hs-var">toText3</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070666"><span class="hs-identifier hs-var">cols</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070667"><span class="hs-identifier hs-var">lines</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070662"><span class="hs-identifier hs-var">screenCol</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070673"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-129"></span><span>            </span><span class="annot"><span class="annottext">Window -&gt; Update () -&gt; Curses ()
+forall a. Window -&gt; Update a -&gt; Curses a
+</span><span class="hs-identifier hs-var">updateWindow</span></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070668"><span class="hs-identifier hs-var">w</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-keyword">do</span><span>
+</span><span id="line-130"></span><span>                              </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Update ()
+</span><a href="Editor.html#moveCursorInt"><span class="hs-identifier hs-var">moveCursorInt</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-131"></span><span>                              </span><span class="annot"><span class="annottext">Text -&gt; Update ()
+</span><span class="hs-identifier hs-var">drawText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.replicate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070667"><span class="hs-identifier hs-var">lines</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070666"><span class="hs-identifier hs-var">cols</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot; &quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>                              </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Update ()
+</span><a href="Editor.html#moveCursorInt"><span class="hs-identifier hs-var">moveCursorInt</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-133"></span><span>                              </span><span class="annot"><span class="annottext">Text -&gt; Update ()
+</span><span class="hs-identifier hs-var">drawText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679070660"><span class="hs-identifier hs-var">lef</span></a></span><span>
+</span><span id="line-134"></span><span>                              </span><span class="annot"><span class="annottext">ColorID -&gt; Update ()
+</span><span class="hs-identifier hs-var">setColor</span></span><span> </span><span class="annot"><span class="annottext">ColorID
+</span><a href="#local-6989586621679070672"><span class="hs-identifier hs-var">selectionColor</span></a></span><span>
+</span><span id="line-135"></span><span>                              </span><span class="annot"><span class="annottext">Text -&gt; Update ()
+</span><span class="hs-identifier hs-var">drawText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679070659"><span class="hs-identifier hs-var">sel</span></a></span><span>
+</span><span id="line-136"></span><span>                              </span><span class="annot"><span class="annottext">ColorID -&gt; Update ()
+</span><span class="hs-identifier hs-var">setColor</span></span><span> </span><span class="annot"><span class="annottext">ColorID
+</span><span class="hs-identifier hs-var">defaultColorID</span></span><span>
+</span><span id="line-137"></span><span>                              </span><span class="annot"><span class="annottext">Text -&gt; Update ()
+</span><span class="hs-identifier hs-var">drawText</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679070658"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-138"></span><span>                              </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Update ()
+</span><a href="Editor.html#moveCursorInt"><span class="hs-identifier hs-var">moveCursorInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070662"><span class="hs-identifier hs-var">screenCol</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070664"><span class="hs-identifier hs-var">sc</span></a></span><span>
+</span><span id="line-139"></span><span>                           </span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- | Updates the display based on the state of the zipper.</span><span>
+</span><span id="line-142"></span><span class="annot"><a href="Editor.html#tedRender"><span class="hs-identifier hs-type">tedRender</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Window</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#MonadEditor"><span class="hs-identifier hs-type">MonadEditor</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span id="tedRender"><span class="annot"><span class="annottext">tedRender :: Window -&gt; (Zipper -&gt; Zipper) -&gt; StateT TedState Curses ()
+</span><a href="Editor.html#tedRender"><span class="hs-identifier hs-var hs-var">tedRender</span></a></span></span><span> </span><span id="local-6989586621679070650"><span class="annot"><span class="annottext">w :: Window
+</span><a href="#local-6989586621679070650"><span class="hs-identifier hs-var">w</span></a></span></span><span> </span><span id="local-6989586621679070649"><span class="annot"><span class="annottext">f :: Zipper -&gt; Zipper
+</span><a href="#local-6989586621679070649"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-144"></span><span>      </span><span id="local-6989586621679070648"><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070648"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateT TedState Curses TedState
+forall s (m :: * -&gt; *). MonadState s m =&gt; m s
+</span><span class="hs-identifier hs-var">get</span></span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679070647"><span class="annot"><span class="annottext">r :: Int
+</span><a href="#local-6989586621679070647"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int))
+-&gt; Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Window -&gt; Curses (Int, Int)
+</span><a href="Editor.html#getCursorInt"><span class="hs-identifier hs-var">getCursorInt</span></a></span><span> </span><span class="annot"><span class="annottext">Window
+</span><a href="#local-6989586621679070650"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-146"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621679070646"><span class="annot"><span class="annottext">nr :: Int
+</span><a href="#local-6989586621679070646"><span class="hs-identifier hs-var">nr</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070645"><span class="annot"><span class="annottext">nc :: Int
+</span><a href="#local-6989586621679070645"><span class="hs-identifier hs-var">nc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int))
+-&gt; Curses (Int, Int) -&gt; StateT TedState Curses (Int, Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Curses (Int, Int)
+</span><a href="Editor.html#screenSizeInt"><span class="hs-identifier hs-var">screenSizeInt</span></a></span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679070644"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070644"><span class="hs-identifier hs-var hs-var">z</span></a></span></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TedState -&gt; Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var hs-var">text</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070648"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-148"></span><span>          </span><span id="local-6989586621679070643"><span class="annot"><span class="annottext">z' :: Zipper
+</span><a href="#local-6989586621679070643"><span class="hs-identifier hs-var hs-var">z'</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper -&gt; Zipper
+</span><a href="#local-6989586621679070649"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070644"><span class="hs-identifier hs-var">z</span></a></span><span>
+</span><span id="line-149"></span><span>          </span><span class="hs-special">(</span><span id="local-6989586621679070642"><span class="annot"><span class="annottext">dr :: Int
+</span><a href="#local-6989586621679070642"><span class="hs-identifier hs-var">dr</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Zipper -&gt; Zipper -&gt; (Int, Int)
+</span><a href="Zipper.html#posDiff"><span class="hs-identifier hs-var">posDiff</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070645"><span class="hs-identifier hs-var">nc</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070644"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070643"><span class="hs-identifier hs-var">z'</span></a></span><span>
+</span><span id="line-150"></span><span>          </span><span id="local-6989586621679070640"><span class="annot"><span class="annottext">offdiff :: Int
+</span><a href="#local-6989586621679070640"><span class="hs-identifier hs-var hs-var">offdiff</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070647"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070642"><span class="hs-identifier hs-var">dr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070646"><span class="hs-identifier hs-var">nr</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">||</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070647"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070642"><span class="hs-identifier hs-var">dr</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070642"><span class="hs-identifier hs-var">dr</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-151"></span><span>          </span><span id="local-6989586621679070637"><span class="annot"><span class="annottext">off :: Int
+</span><a href="#local-6989586621679070637"><span class="hs-identifier hs-var hs-var">off</span></a></span></span><span>     </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TedState -&gt; Int
+</span><a href="Editor.html#offset"><span class="hs-identifier hs-var hs-var">offset</span></a></span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070648"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070640"><span class="hs-identifier hs-var">offdiff</span></a></span><span>
+</span><span id="line-152"></span><span>      </span><span class="annot"><span class="annottext">Curses () -&gt; StateT TedState Curses ()
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(Curses () -&gt; StateT TedState Curses ())
+-&gt; Curses () -&gt; StateT TedState Curses ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Zipper -&gt; Curses ()
+</span><a href="Editor.html#draw"><span class="hs-identifier hs-var">draw</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070637"><span class="hs-identifier hs-var">off</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070643"><span class="hs-identifier hs-var">z'</span></a></span><span>
+</span><span id="line-153"></span><span>      </span><span class="annot"><span class="annottext">Curses () -&gt; StateT TedState Curses ()
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">Curses ()
+</span><span class="hs-identifier hs-var">render</span></span><span>
+</span><span id="line-154"></span><span>      </span><span class="annot"><span class="annottext">(TedState -&gt; TedState) -&gt; StateT TedState Curses ()
+forall s (m :: * -&gt; *). MonadState s m =&gt; (s -&gt; s) -&gt; m ()
+</span><span class="hs-identifier hs-var">modify</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679070635"><span class="annot"><span class="annottext">s :: TedState
+</span><a href="#local-6989586621679070635"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TedState
+</span><a href="#local-6989586621679070635"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">offset :: Int
+</span><a href="Editor.html#offset"><span class="hs-identifier hs-var">offset</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070637"><span class="hs-identifier hs-var">off</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">text :: Zipper
+</span><a href="Editor.html#text"><span class="hs-identifier hs-var">text</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070643"><span class="hs-identifier hs-var">z'</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="hs-comment">-- | Converts an arrow key press to the (y,x) go-relative coordinates.</span><span>
+</span><span id="line-157"></span><span class="annot"><a href="Editor.html#arrowToMove"><span class="hs-identifier hs-type">arrowToMove</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Key</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span id="arrowToMove"><span class="annot"><span class="annottext">arrowToMove :: Int -&gt; Zipper -&gt; Key -&gt; (Int, Int)
+</span><a href="Editor.html#arrowToMove"><span class="hs-identifier hs-var hs-var">arrowToMove</span></a></span></span><span> </span><span id="local-6989586621679070634"><span class="annot"><span class="annottext">l :: Int
+</span><a href="#local-6989586621679070634"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621679070633"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070633"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span id="local-6989586621679070632"><span class="annot"><span class="annottext">k :: Key
+</span><a href="#local-6989586621679070632"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679070631"><span class="annot"><span class="annottext">c :: Int
+</span><a href="#local-6989586621679070631"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Zipper -&gt; (Int, Int)
+</span><a href="Zipper.html#cursorStart"><span class="hs-identifier hs-var">cursorStart</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070634"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070633"><span class="hs-identifier hs-var">z</span></a></span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Key -&gt; (Int, Int)
+forall a b p. (Num a, Num b) =&gt; p -&gt; Key -&gt; (a, b)
+</span><a href="#local-6989586621679070630"><span class="hs-identifier hs-var">convert</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679070631"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070632"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-159"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-160"></span><span>      </span><span id="local-6989586621679070630"><span class="annot"><span class="annottext">convert :: p -&gt; Key -&gt; (a, b)
+</span><a href="#local-6989586621679070630"><span class="hs-identifier hs-var hs-var">convert</span></a></span></span><span> </span><span id="local-6989586621679070629"><span class="annot"><span class="annottext">c :: p
+</span><a href="#local-6989586621679070629"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeyUpArrow</span></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">-</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>      </span><span class="annot"><a href="#local-6989586621679070630"><span class="hs-identifier hs-var">convert</span></a></span><span> </span><span id="local-6989586621679070627"><span class="annot"><span class="annottext">c :: p
+</span><a href="#local-6989586621679070627"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeyDownArrow</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-162"></span><span>      </span><span class="annot"><a href="#local-6989586621679070630"><span class="hs-identifier hs-var">convert</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeyLeftArrow</span></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">-</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>      </span><span class="annot"><a href="#local-6989586621679070630"><span class="hs-identifier hs-var">convert</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeyRightArrow</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span class="annot"><a href="Editor.html#arrowKeys"><span class="hs-identifier hs-type">arrowKeys</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Key</span></span><span class="hs-special">]</span><span>
+</span><span id="line-166"></span><span id="arrowKeys"><span class="annot"><span class="annottext">arrowKeys :: [Key]
+</span><a href="Editor.html#arrowKeys"><span class="hs-identifier hs-var hs-var">arrowKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Item [Key]
+Key
+</span><span class="hs-identifier hs-var">KeyUpArrow</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Item [Key]
+Key
+</span><span class="hs-identifier hs-var">KeyDownArrow</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Item [Key]
+Key
+</span><span class="hs-identifier hs-var">KeyLeftArrow</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Item [Key]
+Key
+</span><span class="hs-identifier hs-var">KeyRightArrow</span></span><span class="hs-special">]</span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="annot"><a href="Editor.html#isArrowKey"><span class="hs-identifier hs-type">isArrowKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Key</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-169"></span><span id="isArrowKey"><span class="annot"><span class="annottext">isArrowKey :: Key -&gt; Bool
+</span><a href="Editor.html#isArrowKey"><span class="hs-identifier hs-var hs-var">isArrowKey</span></a></span></span><span> </span><span id="local-6989586621679070622"><span class="annot"><span class="annottext">k :: Key
+</span><a href="#local-6989586621679070622"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Key -&gt; [Key] -&gt; Bool
+forall (t :: * -&gt; *) a. (Foldable t, Eq a) =&gt; a -&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">elem</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><a href="#local-6989586621679070622"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">[Key]
+</span><a href="Editor.html#arrowKeys"><span class="hs-identifier hs-var">arrowKeys</span></a></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="annot"><a href="Editor.html#toggleMode"><span class="hs-identifier hs-type">toggleMode</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Editor.html#Mode"><span class="hs-identifier hs-type">Mode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Editor.html#Mode"><span class="hs-identifier hs-type">Mode</span></a></span><span>
+</span><span id="line-172"></span><span id="toggleMode"><span class="annot"><span class="annottext">toggleMode :: Mode -&gt; Mode
+</span><a href="Editor.html#toggleMode"><span class="hs-identifier hs-var hs-var">toggleMode</span></a></span></span><span> </span><span class="annot"><a href="Editor.html#Insert"><span class="hs-identifier hs-type">Insert</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mode
+</span><a href="Editor.html#Edit"><span class="hs-identifier hs-var">Edit</span></a></span><span>
+</span><span id="line-173"></span><span class="annot"><a href="Editor.html#toggleMode"><span class="hs-identifier hs-var">toggleMode</span></a></span><span> </span><span class="annot"><a href="Editor.html#Edit"><span class="hs-identifier hs-type">Edit</span></a></span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mode
+</span><a href="Editor.html#Insert"><span class="hs-identifier hs-var">Insert</span></a></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span class="annot"><a href="Editor.html#write"><span class="hs-identifier hs-type">write</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Zipper.html#Zipper"><span class="hs-identifier hs-type">Zipper</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-176"></span><span id="write"><span class="annot"><span class="annottext">write :: String -&gt; Zipper -&gt; IO ()
+</span><a href="Editor.html#write"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span id="local-6989586621679070619"><span class="annot"><span class="annottext">p :: String
+</span><a href="#local-6989586621679070619"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621679070618"><span class="annot"><span class="annottext">z :: Zipper
+</span><a href="#local-6989586621679070618"><span class="hs-identifier hs-var">z</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-177"></span><span>               </span><span class="annot"><span class="annottext">String -&gt; Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">I.writeFile</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679070619"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-178"></span><span>               </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Seq Text -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><a href="#local-6989586621679070615"><span class="hs-identifier hs-var">af</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Zipper -&gt; Seq Text
+</span><a href="Zipper.html#above"><span class="hs-identifier hs-var hs-var">above</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070618"><span class="hs-identifier hs-var">z</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span>               </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><a href="#local-6989586621679070615"><span class="hs-identifier hs-var">af</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Zipper -&gt; Text
+</span><a href="Zipper.html#combineLine"><span class="hs-identifier hs-var">combineLine</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070618"><span class="hs-identifier hs-var">z</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-180"></span><span>               </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Seq Text -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><a href="#local-6989586621679070615"><span class="hs-identifier hs-var">af</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Zipper -&gt; Seq Text
+</span><a href="Zipper.html#below"><span class="hs-identifier hs-var hs-var">below</span></a></span><span> </span><span class="annot"><span class="annottext">Zipper
+</span><a href="#local-6989586621679070618"><span class="hs-identifier hs-var">z</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-181"></span><span>       </span><span class="hs-keyword">where</span><span>
+</span><span id="line-182"></span><span>         </span><span id="local-6989586621679070615"><span class="annot"><span class="annottext">af :: Text -&gt; IO ()
+</span><a href="#local-6989586621679070615"><span class="hs-identifier hs-var hs-var">af</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">I.appendFile</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679070619"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; (Text -&gt; Text) -&gt; Text -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text -&gt; Text) -&gt; Text -&gt; Text -&gt; Text
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.append</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\n&quot;</span></span><span>
+</span><span id="line-183"></span></pre></body></html>
