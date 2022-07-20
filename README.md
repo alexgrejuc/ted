@@ -4,7 +4,7 @@ It is intended to be used for prose rather than code. Like [Vim](https://www.vim
 
 ![A screenshot of this README being viewed with ted](docs/img/ted.png)
 
-A 70 second demo video is available [here](https://media.oregonstate.edu/media/t/1_01l6076t) and a report on the design of the project is available [here](docs/report.pdf).
+A 70-second demo video is available [here](https://media.oregonstate.edu/media/t/1_01l6076t) and a report on the design of the project is available [here](docs/report.pdf).
 
 The haddock-generated source code documentation can be viewed [here](https://web.engr.oregonstate.edu/~grejuca/ted-haddock/index.html).
 
@@ -23,7 +23,7 @@ This will display the contents of the file or a blank screen if the file does no
 
 #### Edit Mode Features
   * **selection:**
-    * `w` - curent word
+    * `w` - current word
     * `s` - current sentence
     * `p` - current paragraph
   * **others**
