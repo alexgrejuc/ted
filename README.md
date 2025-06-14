@@ -11,6 +11,7 @@ A 70-second demo video is available [here](https://media.oregonstate.edu/media/t
 Pull the docker image and run it interactively.
 
 `docker pull alexgrejuc/ted`
+
 `docker run -it alexgrejuc/ted`
 
 Now you should see something like `root@6d79e6f0f9c8:/app#`
