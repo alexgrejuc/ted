@@ -1,0 +1,17 @@
+ted has basic functionality for viewing, editing and creating files.
+
+It starts out in insert mode, which supports:
+    * Inserting text
+    * Would it even be a text editor if you couldn't do that?
+    * Navigating with arrow keys
+    * Removing text with the backspace
+
+Pressing escape toggles the mode.
+
+Edit mode supports:
+    * Navigating with arrow keys
+    * Selecting the current word or sentence. And the current paragraph.
+    * Cutting, copying, and pasting the selection.
+    * toggling the case of the selection.
+    * Saving the file to <filename>.ted and quitting
+
