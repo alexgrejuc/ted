@@ -6,12 +6,13 @@ It starts out in insert mode, which supports:
     * Navigating with arrow keys
     * Removing text with the backspace
 
-Pressing escape toggles the mode.
+Pres <escape> to toggle to edit mode. 
 
 Edit mode supports:
     * Navigating with arrow keys
-    * Selecting the current word or sentence. And the current paragraph.
-    * Cutting, copying, and pasting the selection.
-    * toggling the case of the selection.
-    * Saving the file to <filename>.ted and quitting
+    * Selecting the current word <w> or sentence <s>. And the current paragraph <p>.
+    * Cutting <x>, copying <c>, and pasting <C> the selection.
+    * toggling the selection to upper <L> or lower <l> case.
+    * deleting the selection <d>
+    * Saving the file to <filename>.ted and quitting <q>.
 
