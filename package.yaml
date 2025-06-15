@@ -34,7 +34,7 @@ library:
   source-dirs: src
 
 executables:
-  ted-exe:
+  ted:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

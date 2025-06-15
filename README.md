@@ -10,15 +10,19 @@ A 70-second demo video is available [here](https://media.oregonstate.edu/media/t
 
 Pull the docker image and run it interactively.
 
-`docker pull alexgrejuc/ted`
+> docker pull alexgrejuc/ted
 
-`docker run -it alexgrejuc/ted`
+> docker run -it alexgrejuc/ted
 
-Now you should see something like `root@6d79e6f0f9c8:/app#`
+Now you should see something like
 
-To use the editor, run `stack run ted-exe demo.txt` (you can also supply another file name, including one that doesn't exist.
+> root@6d79e6f0f9c8:/app#
 
-This will display the contents of demo.txt. You will be able to insert and delete text and navigate around with arrow keys. You can press escape to toggle the mode.
+To use the editor, run
+
+> ted demo.txt
+
+This will display the contents of demo.txt. You will be able to insert and delete text and navigate around with arrow keys. You can press escape to toggle the mode. You can also supply another file name, including one that doesn't exist.
 
 #### Edit Mode Features
   * **quitting**
