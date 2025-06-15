@@ -97,6 +97,7 @@ editEvent w e                      = return () -- ignore everything else (e.g. m
 insertEvent :: Window -> Event -> MonadEditor ()
 insertEvent w (EventSpecialKey k)    = do { (_, l) <- lift screenSizeInt; tedRender w (act (l) k) }
 insertEvent w (EventCharacter '\n')  = tedRender w split
+insertEvent w (EventCharacter '\t')  = tedRender w (foldr (.) id (Prelude.replicate 4 (appendChar ' ')))
 insertEvent w (EventCharacter c)     = tedRender w (appendChar c)
 insertEvent w e                      = return () -- ignore everything else (e.g. mouse clicks)
 
